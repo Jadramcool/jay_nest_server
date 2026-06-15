@@ -1,0 +1,36 @@
+# dependencies
+/node_modules
+
+# build output
+/dist
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agent/
+.trae/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# lock - pnpm preferred
+package-lock.json

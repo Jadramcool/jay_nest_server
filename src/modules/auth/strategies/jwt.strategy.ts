@@ -1,0 +1,83 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '@/prisma/prisma.service';
+
+export interface JwtPayload {
+  id: number;
+  username: string;
+  iat?: number;
+  exp?: number;
+}
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+    });
+  }
+
+  async validate(payload: JwtPayload) {
+    if (!payload.id) {
+      throw new UnauthorizedException('无效的Token');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.id },
+      select: {
+        id: true,
+        username: true,
+        isDeleted: true,
+        status: true,
+        roles: {
+          where: {
+            role: { isDeleted: false },
+          },
+          include: {
+            role: {
+              select: {
+                code: true,
+                menus: {
+                  include: {
+                    menu: { select: { code: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user || user.isDeleted) {
+      throw new UnauthorizedException('用户不存在或已删除');
+    }
+
+    if (user.status !== 1) {
+      throw new UnauthorizedException('用户已被禁用');
+    }
+
+    const roles = user.roles.map((ur) => ur.role.code);
+    const permissions = [
+      ...new Set(
+        user.roles.flatMap((ur) =>
+          ur.role.menus.map((rm) => rm.menu.code).filter(Boolean),
+        ),
+      ),
+    ];
+
+    return {
+      userId: user.id,
+      username: user.username,
+      roles,
+      permissions,
+    };
+  }
+}
