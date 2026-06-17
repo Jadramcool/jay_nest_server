@@ -85,14 +85,14 @@ export class DepartmentController {
     return this.departmentService.create(createDepartmentDto);
   }
 
-  @Put('update')
+  @Put('update/:id')
   @RequirePermissions('system:department:update')
   @ApiOperation({ summary: '更新部门' })
   async update(
-    @Body() updateDepartmentDto: UpdateDepartmentDto & { id: number },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDepartmentDto: UpdateDepartmentDto,
   ) {
-    const { id, ...data } = updateDepartmentDto;
-    return this.departmentService.update(id, data);
+    return this.departmentService.update(id, updateDepartmentDto);
   }
 
   @Delete('delete/:id')

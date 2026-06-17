@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Menu, Prisma } from '@prisma/client';
+import { Menu, Prisma, MenuType } from '@prisma/client';
 import { CreateMenuDto, UpdateMenuDto, QueryMenuDto } from './dto';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
 
@@ -12,21 +12,29 @@ export interface MenuTreeNode {
   id: number;
   name: string;
   code: string;
-  type: string;
+  permission: string | null;
+  type: MenuType;
   pid: number | null;
   path: string | null;
   redirect: string | null;
   icon: string | null;
   component: string | null;
   layout: string;
-  keepAlive: boolean | null;
+  keepAlive: boolean;
   method: string | null;
   description: string | null;
   show: boolean;
   enable: boolean;
   order: number;
+  isFrame: boolean;
+  frameSrc: string | null;
+  target: string;
+  affix: boolean;
+  alwaysShow: boolean | null;
+  badge: string | null;
+  badgeType: string | null;
   needLogin: boolean | null;
-  extraData: string | null;
+  extraData: Prisma.JsonValue | null;
   createdTime: Date;
   updatedTime: Date | null;
   children?: MenuTreeNode[];
@@ -51,21 +59,29 @@ export class MenuService {
       data: {
         name: createMenuDto.name,
         code: createMenuDto.code,
+        permission: createMenuDto.permission,
         type: createMenuDto.type,
         pid: createMenuDto.pid,
         path: createMenuDto.path,
         redirect: createMenuDto.redirect,
         icon: createMenuDto.icon,
         component: createMenuDto.component,
-        layout: createMenuDto.layout || 'default',
+        layout: createMenuDto.layout || 'normal',
         keepAlive: createMenuDto.keepAlive ?? false,
         method: createMenuDto.method,
         description: createMenuDto.description,
         show: createMenuDto.show ?? true,
         enable: createMenuDto.enable ?? true,
         order: createMenuDto.order ?? 0,
+        isFrame: createMenuDto.isFrame ?? false,
+        frameSrc: createMenuDto.frameSrc,
+        target: createMenuDto.target || '_self',
+        affix: createMenuDto.affix ?? false,
+        alwaysShow: createMenuDto.alwaysShow,
+        badge: createMenuDto.badge,
+        badgeType: createMenuDto.badgeType,
         needLogin: createMenuDto.needLogin ?? true,
-        extraData: createMenuDto.extraData,
+        extraData: createMenuDto.extraData as Prisma.InputJsonValue,
       },
     });
 
@@ -77,6 +93,7 @@ export class MenuService {
       ...buildQueryWhere(queryMenuDto, {
         name: 'contains',
         code: 'contains',
+        permission: 'contains',
         type: 'eq',
         pid: 'eq',
         show: 'eq',
@@ -137,9 +154,15 @@ export class MenuService {
       }
     }
 
+    const { extraData, ...rest } = updateMenuDto;
     const updatedMenu = await this.prisma.menu.update({
       where: { id },
-      data: updateMenuDto,
+      data: {
+        ...rest,
+        ...(extraData !== undefined && {
+          extraData: extraData as Prisma.InputJsonValue,
+        }),
+      },
     });
 
     return this.formatMenu(updatedMenu);
@@ -202,6 +225,7 @@ export class MenuService {
       id: menu.id,
       name: menu.name,
       code: menu.code,
+      permission: menu.permission,
       type: menu.type,
       pid: menu.pid,
       path: menu.path,
@@ -215,6 +239,13 @@ export class MenuService {
       show: menu.show,
       enable: menu.enable,
       order: menu.order,
+      isFrame: menu.isFrame,
+      frameSrc: menu.frameSrc,
+      target: menu.target,
+      affix: menu.affix,
+      alwaysShow: menu.alwaysShow,
+      badge: menu.badge,
+      badgeType: menu.badgeType,
       needLogin: menu.needLogin,
       extraData: menu.extraData,
       createdTime: menu.createdTime,

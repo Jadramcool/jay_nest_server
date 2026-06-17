@@ -46,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
                 code: true,
                 menus: {
                   include: {
-                    menu: { select: { code: true } },
+                    menu: { select: { permission: true } },
                   },
                 },
               },
@@ -68,7 +68,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const permissions = [
       ...new Set(
         user.roles.flatMap((ur) =>
-          ur.role.menus.map((rm) => rm.menu.code).filter(Boolean),
+          ur.role.menus.map((rm) => rm.menu.permission).filter(Boolean),
         ),
       ),
     ];

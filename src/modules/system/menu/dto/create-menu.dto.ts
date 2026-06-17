@@ -6,8 +6,11 @@ import {
   IsBoolean,
   MaxLength,
   MinLength,
+  IsEnum,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MenuType } from '@prisma/client';
 
 export class CreateMenuDto {
   @ApiProperty({ description: '菜单名称' })
@@ -16,15 +19,21 @@ export class CreateMenuDto {
   @MaxLength(50)
   name: string;
 
-  @ApiProperty({ description: '菜单编码', example: 'system:user:list' })
+  @ApiProperty({ description: '路由标识', example: 'UserList' })
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   code: string;
 
-  @ApiProperty({ description: '菜单类型', example: 'menu' })
+  @ApiPropertyOptional({ description: '权限标识', example: 'system:user:list' })
+  @IsOptional()
   @IsString()
-  type: string;
+  @MaxLength(100)
+  permission?: string;
+
+  @ApiProperty({ description: '菜单类型', enum: MenuType })
+  @IsEnum(MenuType)
+  type: MenuType;
 
   @ApiPropertyOptional({ description: '父菜单ID' })
   @IsOptional()
@@ -52,7 +61,7 @@ export class CreateMenuDto {
   @IsString()
   component?: string;
 
-  @ApiPropertyOptional({ description: '布局类型', default: 'default' })
+  @ApiPropertyOptional({ description: '布局类型', default: 'normal' })
   @IsOptional()
   @IsString()
   layout?: string;
@@ -62,7 +71,7 @@ export class CreateMenuDto {
   @IsBoolean()
   keepAlive?: boolean;
 
-  @ApiPropertyOptional({ description: 'HTTP方法' })
+  @ApiPropertyOptional({ description: 'HTTP方法（按钮权限使用）' })
   @IsOptional()
   @IsString()
   method?: string;
@@ -88,13 +97,48 @@ export class CreateMenuDto {
   @IsInt()
   order?: number;
 
+  @ApiPropertyOptional({ description: '是否外部链接', default: false })
+  @IsOptional()
+  @IsBoolean()
+  isFrame?: boolean;
+
+  @ApiPropertyOptional({ description: '外部链接地址' })
+  @IsOptional()
+  @IsString()
+  frameSrc?: string;
+
+  @ApiPropertyOptional({ description: '打开方式', default: '_self' })
+  @IsOptional()
+  @IsString()
+  target?: string;
+
+  @ApiPropertyOptional({ description: '是否固定标签页', default: false })
+  @IsOptional()
+  @IsBoolean()
+  affix?: boolean;
+
+  @ApiPropertyOptional({ description: '目录是否始终显示' })
+  @IsOptional()
+  @IsBoolean()
+  alwaysShow?: boolean;
+
+  @ApiPropertyOptional({ description: '徽标内容' })
+  @IsOptional()
+  @IsString()
+  badge?: string;
+
+  @ApiPropertyOptional({ description: '徽标类型' })
+  @IsOptional()
+  @IsString()
+  badgeType?: string;
+
   @ApiPropertyOptional({ description: '是否需要登录', default: true })
   @IsOptional()
   @IsBoolean()
   needLogin?: boolean;
 
-  @ApiPropertyOptional({ description: '额外数据' })
+  @ApiPropertyOptional({ description: '额外数据（JSON 对象）' })
   @IsOptional()
-  @IsString()
-  extraData?: string;
+  @IsObject()
+  extraData?: Record<string, any>;
 }

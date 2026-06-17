@@ -26,12 +26,6 @@ export class CreateDepartmentDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: '部门层级', default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  level?: number;
-
   @ApiPropertyOptional({ description: '排序', default: 0 })
   @IsOptional()
   @Type(() => Number)

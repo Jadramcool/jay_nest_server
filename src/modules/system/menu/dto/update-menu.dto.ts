@@ -6,8 +6,11 @@ import {
   IsBoolean,
   MaxLength,
   MinLength,
+  IsEnum,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MenuType } from '@prisma/client';
 
 export class UpdateMenuDto {
   @ApiProperty({ description: '菜单ID' })
@@ -22,17 +25,23 @@ export class UpdateMenuDto {
   @MaxLength(50)
   name?: string;
 
-  @ApiPropertyOptional({ description: '菜单编码' })
+  @ApiPropertyOptional({ description: '路由标识' })
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   code?: string;
 
-  @ApiPropertyOptional({ description: '菜单类型' })
+  @ApiPropertyOptional({ description: '权限标识' })
   @IsOptional()
   @IsString()
-  type?: string;
+  @MaxLength(100)
+  permission?: string;
+
+  @ApiPropertyOptional({ description: '菜单类型', enum: MenuType })
+  @IsOptional()
+  @IsEnum(MenuType)
+  type?: MenuType;
 
   @ApiPropertyOptional({ description: '父菜单ID' })
   @IsOptional()
@@ -96,13 +105,48 @@ export class UpdateMenuDto {
   @IsInt()
   order?: number;
 
+  @ApiPropertyOptional({ description: '是否外部链接' })
+  @IsOptional()
+  @IsBoolean()
+  isFrame?: boolean;
+
+  @ApiPropertyOptional({ description: '外部链接地址' })
+  @IsOptional()
+  @IsString()
+  frameSrc?: string;
+
+  @ApiPropertyOptional({ description: '打开方式' })
+  @IsOptional()
+  @IsString()
+  target?: string;
+
+  @ApiPropertyOptional({ description: '是否固定标签页' })
+  @IsOptional()
+  @IsBoolean()
+  affix?: boolean;
+
+  @ApiPropertyOptional({ description: '目录是否始终显示' })
+  @IsOptional()
+  @IsBoolean()
+  alwaysShow?: boolean;
+
+  @ApiPropertyOptional({ description: '徽标内容' })
+  @IsOptional()
+  @IsString()
+  badge?: string;
+
+  @ApiPropertyOptional({ description: '徽标类型' })
+  @IsOptional()
+  @IsString()
+  badgeType?: string;
+
   @ApiPropertyOptional({ description: '是否需要登录' })
   @IsOptional()
   @IsBoolean()
   needLogin?: boolean;
 
-  @ApiPropertyOptional({ description: '额外数据' })
+  @ApiPropertyOptional({ description: '额外数据（JSON 对象）' })
   @IsOptional()
-  @IsString()
-  extraData?: string;
+  @IsObject()
+  extraData?: Record<string, any>;
 }

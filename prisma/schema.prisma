@@ -74,31 +74,50 @@ model User {
  * 存储系统菜单和权限信息
  */
 model Menu {
-  id          Int       @id @default(autoincrement()) // 主键，自增ID
-  name        String // 菜单名称
-  code        String    @unique // 菜单编码，唯一
-  type        String // 菜单类型
-  pid         Int? // 父菜单ID
-  path        String? // 路由路径
-  redirect    String? // 重定向路径
-  icon        String? // 图标
-  component   String? // 组件路径
-  layout      String // 布局类型
-  keepAlive   Boolean?  @default(false) @map("keep_alive") // 是否缓存页面
-  method      String? // HTTP方法
-  description String? // 描述
-  show        Boolean   @default(true) // 是否显示
-  enable      Boolean   @default(true) // 是否启用
-  order       Int // 排序
-  createdTime DateTime  @default(now()) @map("created_time") // 创建时间
-  updatedTime DateTime? @updatedAt @map("updated_time") // 更新时间
-  needLogin   Boolean?  @default(true) @map("need_login") // 是否需要登录
-  extraData   String?   @map("extra_data") // 额外数据
+  id          Int       @id @default(autoincrement())
+  name        String
+  code        String    @unique
+  permission  String?
+  type        MenuType
+  pid         Int?
+  path        String?
+  redirect    String?
+  icon        String?
+  component   String?
+  layout      String    @default("normal")
+  keepAlive   Boolean   @default(false) @map("keep_alive")
+  method      String?
+  description String?
+  show        Boolean   @default(true)
+  enable      Boolean   @default(true)
+  order       Int
+  isFrame     Boolean   @default(false) @map("is_frame")
+  frameSrc    String?   @map("frame_src")
+  target      String    @default("_self")
+  affix       Boolean   @default(false)
+  alwaysShow  Boolean?  @map("always_show")
+  badge       String?
+  badgeType   String?   @map("badge_type")
+  createdTime DateTime  @default(now()) @map("created_time")
+  updatedTime DateTime? @updatedAt @map("updated_time")
+  needLogin   Boolean?  @default(true) @map("need_login")
+  extraData   Json?     @map("extra_data")
 
   // 关联关系
-  roles RoleMenu[] // 角色菜单关联
+  parent   Menu?     @relation("MenuTree", fields: [pid], references: [id])
+  children Menu[]    @relation("MenuTree")
+  roles    RoleMenu[]
 
+  @@index([pid], map: "menu_pid_fkey")
   @@map("menu")
+}
+
+// 枚举定义
+
+enum MenuType {
+  DIRECTORY
+  MENU
+  BUTTON
 }
 
 /**
@@ -106,19 +125,18 @@ model Menu {
  * 存储系统角色信息
  */
 model Role {
-  id          Int       @id @default(autoincrement()) // 主键，自增ID
-  code        String    @unique // 角色编码，唯一
-  name        String    @unique // 角色名称，唯一
-  description String? // 角色描述
-  createdTime DateTime  @default(now()) @map("created_time") // 创建时间
-  updatedTime DateTime  @updatedAt @map("updated_time") // 更新时间
-  deletedTime DateTime? @map("deleted_time") // 删除时间
-  isDeleted   Boolean   @default(false) @map("is_deleted") // 是否已删除
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String    @unique
+  description String?
+  createdTime DateTime  @default(now()) @map("created_time")
+  updatedTime DateTime  @updatedAt @map("updated_time")
+  deletedTime DateTime? @map("deleted_time")
+  isDeleted   Boolean   @default(false) @map("is_deleted")
 
-  // 关联关系
-  departments RoleDepartment[] @relation("RoleDepartments") // 角色部门关联
-  menus       RoleMenu[] // 角色菜单关联
-  users       UserRole[] // 用户角色关联
+  departments RoleDepartment[] @relation("RoleDepartments")
+  menus       RoleMenu[]
+  users       UserRole[]
 
   @@map("role")
 }
@@ -367,8 +385,6 @@ model NavigationGroupNavigation {
   @@unique([navigationId, groupId]) // 确保同一个导航在同一个组中只能存在一次
   @@map("navigation_group_navigation")
 }
-
-// 枚举定义
 
 /**
  * 配置类型枚举

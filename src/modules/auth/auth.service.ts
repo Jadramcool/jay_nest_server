@@ -21,7 +21,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Sex } from '@prisma/client';
+import { MenuType, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -66,32 +66,29 @@ export interface UserInfo {
  * 用于规范化菜单数据的结构
  */
 export interface MenuFormat {
-  /** 菜单ID */
   id: number;
-  /** 菜单名称 */
   name: string;
-  /** 路由路径 */
   path: string | null;
-  /** 组件路径 */
   component: string | null;
-  /** 重定向路径 */
   redirect: string | null;
-  /** 图标 */
   icon: string | null;
-  /** 菜单类型 */
-  type: string;
-  /** 是否缓存 */
-  keepAlive: boolean | null;
-  /** 是否显示 */
+  type: MenuType;
+  keepAlive: boolean;
   show: boolean | null;
-  /** 是否启用 */
   enable: boolean | null;
-  /** 排序 */
   order: number | null;
-  /** 父菜单ID */
   pid: number | null;
-  /** 菜单编码 */
   code: string;
+  permission: string | null;
+  isFrame: boolean;
+  frameSrc: string | null;
+  target: string;
+  affix: boolean;
+  alwaysShow: boolean | null;
+  badge: string | null;
+  badgeType: string | null;
+  needLogin: boolean | null;
+  extraData: unknown;
 }
 
 /**
@@ -360,6 +357,16 @@ export class AuthService {
             order: menu.order,
             pid: menu.pid,
             code: menu.code,
+            permission: menu.permission,
+            isFrame: menu.isFrame,
+            frameSrc: menu.frameSrc,
+            target: menu.target,
+            affix: menu.affix,
+            alwaysShow: menu.alwaysShow,
+            badge: menu.badge,
+            badgeType: menu.badgeType,
+            needLogin: menu.needLogin,
+            extraData: menu.extraData,
           });
         }
       }
@@ -577,19 +584,7 @@ export class AuthService {
       .map((menu) => {
         const children = this.buildMenuTree(menus, menu.id);
         const node: MenuTreeNode = {
-          id: menu.id,
-          name: menu.name,
-          path: menu.path,
-          component: menu.component,
-          redirect: menu.redirect,
-          icon: menu.icon,
-          type: menu.type,
-          keepAlive: menu.keepAlive,
-          show: menu.show,
-          enable: menu.enable,
-          order: menu.order,
-          pid: menu.pid,
-          code: menu.code,
+          ...menu,
         };
         if (children.length > 0) {
           node.children = children;

@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsInt, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsInt, IsString, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MenuType } from '@prisma/client';
 
 export class QueryMenuDto {
   @ApiPropertyOptional({ description: '页码', example: 1 })
@@ -20,15 +21,20 @@ export class QueryMenuDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: '菜单编码' })
+  @ApiPropertyOptional({ description: '路由标识' })
   @IsOptional()
   @IsString()
   code?: string;
 
-  @ApiPropertyOptional({ description: '菜单类型' })
+  @ApiPropertyOptional({ description: '权限标识' })
   @IsOptional()
   @IsString()
-  type?: string;
+  permission?: string;
+
+  @ApiPropertyOptional({ description: '菜单类型', enum: MenuType })
+  @IsOptional()
+  @IsEnum(MenuType)
+  type?: MenuType;
 
   @ApiPropertyOptional({ description: '父菜单ID' })
   @IsOptional()

@@ -18,12 +18,6 @@ export class UpdateDepartmentDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: '部门层级' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  level?: number;
-
   @ApiPropertyOptional({ description: '排序' })
   @IsOptional()
   @Type(() => Number)

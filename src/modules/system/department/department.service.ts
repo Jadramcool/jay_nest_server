@@ -32,7 +32,7 @@ export class DepartmentService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createDepartmentDto: CreateDepartmentDto) {
-    const { code } = createDepartmentDto;
+    const { code, parentId } = createDepartmentDto;
 
     const existingDept = await this.prisma.department.findUnique({
       where: { code },
@@ -42,8 +42,10 @@ export class DepartmentService {
       throw new BadRequestException('部门编码已存在');
     }
 
+    const level = await this.calcLevel(parentId ?? null);
+
     const department = await this.prisma.department.create({
-      data: createDepartmentDto,
+      data: { ...createDepartmentDto, level },
     });
 
     return this.formatDepartment(department);
@@ -189,9 +191,14 @@ export class DepartmentService {
       }
     }
 
+    const data: Prisma.DepartmentUpdateInput = { ...updateDepartmentDto };
+    if (updateDepartmentDto.parentId !== undefined) {
+      data.level = await this.calcLevel(updateDepartmentDto.parentId ?? null);
+    }
+
     const updatedDepartment = await this.prisma.department.update({
       where: { id },
-      data: updateDepartmentDto,
+      data,
     });
 
     return this.formatDepartment(updatedDepartment);
@@ -352,6 +359,15 @@ export class DepartmentService {
       }
     }
     return ids;
+  }
+
+  private async calcLevel(parentId: number | null): Promise<number> {
+    if (parentId === null) return 1;
+    const parent = await this.prisma.department.findUnique({
+      where: { id: parentId },
+      select: { level: true },
+    });
+    return (parent?.level ?? 0) + 1;
   }
 
   async assignUser(userId: number, departmentId: number) {
