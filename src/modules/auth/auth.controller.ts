@@ -36,7 +36,8 @@ import {
   CheckPasswordDto,
   UpdatePasswordDto,
 } from './dto';
-import { Public, CurrentUser } from '@/common/decorators';
+import { Public, CurrentUser, OperationLog } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
 
 /**
  * 认证模块 API 标签
@@ -57,6 +58,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.LOGIN, description: '用户登录' })
   @ApiOperation({ summary: '用户登录' })
   @ApiResponse({ status: 200, description: '登录成功' })
   @ApiResponse({ status: 401, description: '用户名或密码错误' })
@@ -109,6 +111,7 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.LOGOUT, description: '用户登出' })
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
   logout() {
@@ -169,6 +172,7 @@ export class AuthController {
    */
   @Post('user/checkPassword')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.VIEW, description: '验证密码' })
   @ApiOperation({ summary: '验证密码' })
   async checkPassword(
     @CurrentUser() user: { userId: number; username: string },
@@ -188,6 +192,7 @@ export class AuthController {
    */
   @Post('user/updatePassword')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '修改密码' })
   @ApiOperation({ summary: '修改密码' })
   async updatePassword(
     @CurrentUser() user: { userId: number; username: string },

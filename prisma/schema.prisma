@@ -190,14 +190,19 @@ model Notice {
   type        NoticeType // 通知类型
   authorId    Int // 作者ID
   status      Int        @default(0) // 通知状态 0-草稿 1-发布
+  isPinned    Boolean    @default(false) @map("is_pinned") // 是否置顶
+  isMandatory Boolean    @default(false) @map("is_mandatory") // 是否强制阅读（用户不可关闭）
+  scopeType   String     @default("ALL") @map("scope_type") // 发布范围类型: ALL/ROLE/DEPARTMENT/USER
+  publishedAt DateTime?  @map("published_at") // 实际发布时间
   isDeleted   Boolean    @default(false) @map("is_deleted") // 是否已删除
   createdTime DateTime   @default(now()) @map("created_time") // 创建时间
   updatedTime DateTime   @updatedAt @map("updated_time") // 更新时间
   deletedTime DateTime?  @map("deleted_time") // 删除时间
 
   // 关联关系
-  author    User         @relation("NoticeAuthor", fields: [authorId], references: [id]) // 通知作者
-  receivers UserNotice[] // 通知接收者
+  author    User           @relation("NoticeAuthor", fields: [authorId], references: [id]) // 通知作者
+  receivers UserNotice[]   // 通知接收者
+  targets   NoticeTarget[] // 发布范围目标
 
   @@index([authorId], map: "notice_authorId_fkey")
   @@map("notice")
@@ -222,6 +227,24 @@ model UserNotice {
   @@unique([userId, noticeId]) // 用户和通知的组合唯一
   @@index([noticeId], map: "user_notice_notice_id_fkey")
   @@map("user_notice")
+}
+
+/**
+ * 通知发布范围表
+ * 定义公告的发布范围目标（角色/部门/用户）
+ */
+model NoticeTarget {
+  id         Int    @id @default(autoincrement()) // 主键，自增ID
+  noticeId   Int    @map("notice_id") // 通知ID
+  targetType String @map("target_type") // 目标类型: ROLE/DEPARTMENT/USER
+  targetId   Int    @map("target_id") // 目标ID
+
+  // 关联关系
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Cascade) // 关联通知
+
+  @@unique([noticeId, targetType, targetId]) // 同一公告同类型同目标唯一
+  @@index([noticeId], map: "notice_target_notice_id_fkey")
+  @@map("notice_target")
 }
 
 /**

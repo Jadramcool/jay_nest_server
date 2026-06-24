@@ -85,6 +85,13 @@ export class MenuService {
       },
     });
 
+    // 新菜单自动分配给超级管理员角色（role_id = 1）
+    await this.prisma.roleMenu.upsert({
+      where: { roleId_menuId: { roleId: 1, menuId: menu.id } },
+      update: {},
+      create: { roleId: 1, menuId: menu.id },
+    });
+
     return this.formatMenu(menu);
   }
 

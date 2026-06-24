@@ -10,7 +10,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions } from '@/common/decorators';
+import { RequirePermissions, OperationLog } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
 import { QueryWithOps } from '@/common/decorators/query-with-ops.decorator';
 import { UserService } from './user.service';
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
@@ -80,6 +81,7 @@ export class UserController {
   @Post(':id/roles')
   @RequirePermissions('system:user:assign-role')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '分配用户角色' })
   @ApiOperation({ summary: '分配用户角色' })
   async assignRoles(
     @Param('id', ParseIntPipe) id: number,
@@ -91,6 +93,7 @@ export class UserController {
   @Post(':id/reset-password')
   @RequirePermissions('system:user:reset-password')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '重置用户密码' })
   @ApiOperation({ summary: '重置用户密码' })
   async resetPassword(
     @Param('id', ParseIntPipe) id: number,

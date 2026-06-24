@@ -408,7 +408,7 @@ export class AuthService {
       email?: string;
       sex?: string;
       avatar?: string;
-      birthday?: Date;
+      birthday?: string;
       city?: string;
       address?: string;
       addressDetail?: string;
@@ -449,7 +449,9 @@ export class AuthService {
         ...(data.email !== undefined && { email: data.email }),
         ...(data.sex !== undefined && { sex: data.sex as Sex }),
         ...(data.avatar !== undefined && { avatar: data.avatar }),
-        ...(data.birthday !== undefined && { birthday: data.birthday }),
+        ...(data.birthday !== undefined && {
+          birthday: data.birthday ? new Date(data.birthday) : null,
+        }),
         ...(data.city !== undefined && { city: data.city }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.addressDetail !== undefined && {

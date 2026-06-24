@@ -11,7 +11,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
+import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationLogService } from './operation-log.service';
 import { QueryOperationLogDto } from './dto';
 
@@ -53,6 +54,7 @@ export class OperationLogController {
   @Post('batch-delete')
   @RequirePermissions('system:operation-log:delete')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.DELETE, description: '批量删除操作日志' })
   @ApiOperation({ summary: '批量删除操作日志' })
   async batchRemove(@Body('ids') ids: number[]) {
     return this.operationLogService.batchRemove(ids);
@@ -61,6 +63,7 @@ export class OperationLogController {
   @Post('clear-expired')
   @RequirePermissions('system:operation-log:delete')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.DELETE, description: '清理过期操作日志' })
   @ApiOperation({ summary: '清理过期日志' })
   async clearExpired(@Body('days') days: number = 90) {
     return this.operationLogService.clearExpired(days);

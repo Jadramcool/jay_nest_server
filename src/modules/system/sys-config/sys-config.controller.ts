@@ -12,7 +12,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Public, RequirePermissions } from '@/common/decorators';
+import { Public, RequirePermissions, OperationLog } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
 import { SysConfigService } from './sys-config.service';
 import {
   CreateSysConfigDto,
@@ -108,6 +109,7 @@ export class SysConfigController {
   @Post('validate-password')
   @RequirePermissions('system:config:update')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.VIEW, description: '校验密码' })
   @ApiOperation({ summary: '校验密码' })
   async validatePassword(@Body('password') password: string) {
     return this.sysConfigService.validatePassword(password);

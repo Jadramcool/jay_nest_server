@@ -12,7 +12,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions } from '@/common/decorators';
+import { RequirePermissions, OperationLog } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
 import { RoleService } from './role.service';
 import { CreateRoleDto, UpdateRoleDto, QueryRoleDto } from './dto';
 
@@ -69,6 +70,7 @@ export class RoleController {
   @Post('update/menu')
   @RequirePermissions('system:role:assign-menu')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '分配角色菜单权限' })
   @ApiOperation({ summary: '分配角色菜单权限' })
   async assignMenus(@Body() body: { roleId: number; menuIds: number[] }) {
     return this.roleService.assignMenus(body.roleId, body.menuIds);

@@ -7,9 +7,14 @@ import { OperationLogInterceptor } from './common/interceptors/operation-log.int
 import { OperationLogService } from './modules/system/operation-log/operation-log.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as path from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // 静态文件服务 — 上传文件访问
+  app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
   // 全局验证管道
   app.useGlobalPipes(

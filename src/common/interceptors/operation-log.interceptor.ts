@@ -42,7 +42,7 @@ export class OperationLogInterceptor implements NestInterceptor {
     const request: AuthenticatedRequest = context.switchToHttp().getRequest();
     const method = request.method.toUpperCase();
 
-    if (method === 'OPTIONS') {
+    if (method === 'OPTIONS' || method === 'GET') {
       return next.handle();
     }
 

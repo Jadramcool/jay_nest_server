@@ -12,7 +12,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions } from '@/common/decorators';
+import { RequirePermissions, OperationLog } from '@/common/decorators';
+import { OperationType } from '@prisma/client';
 import { DepartmentService } from './department.service';
 import {
   CreateDepartmentDto,
@@ -106,6 +107,7 @@ export class DepartmentController {
   @Post('assign-user')
   @RequirePermissions('system:department:assign-user')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '分配用户到部门' })
   @ApiOperation({ summary: '分配用户到部门' })
   async assignUser(@Body() body: { userId: number; departmentId: number }) {
     return this.departmentService.assignUser(body.userId, body.departmentId);
@@ -114,6 +116,7 @@ export class DepartmentController {
   @Post('batch-assign-users')
   @RequirePermissions('system:department:assign-user')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '批量分配用户到部门' })
   @ApiOperation({ summary: '批量分配用户到部门' })
   async batchAssignUsers(
     @Body() body: { userIds: number[]; departmentId: number },
@@ -135,6 +138,7 @@ export class DepartmentController {
   @Post('assign-role')
   @RequirePermissions('system:department:assign-role')
   @HttpCode(HttpStatus.OK)
+  @OperationLog({ operationType: OperationType.UPDATE, description: '分配角色到部门' })
   @ApiOperation({ summary: '分配角色到部门' })
   async assignRole(@Body() body: { roleId: number; departmentId: number }) {
     return this.departmentService.assignRole(body.roleId, body.departmentId);

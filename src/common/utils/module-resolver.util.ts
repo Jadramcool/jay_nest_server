@@ -8,6 +8,7 @@ const MODULE_NAMES: Record<string, string> = {
   '/api/system/department': '部门管理',
   '/api/system/config': '系统配置',
   '/api/system/operation-log': '操作日志',
+  '/api/notice': '公告管理',
   '/api/upload': '文件上传',
   '/api/public': '公共接口',
 };

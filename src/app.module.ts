@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SystemModule } from './modules/system/system.module';
+import { NoticeModule } from './modules/notice/notice.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { PublicModule } from './modules/public/public.module';
 
@@ -15,6 +16,7 @@ import { PublicModule } from './modules/public/public.module';
     PrismaModule,
     AuthModule,
     SystemModule,
+    NoticeModule,
     UploadModule,
     PublicModule,
   ],
