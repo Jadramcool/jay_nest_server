@@ -7,14 +7,24 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  DefaultValuePipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions, CurrentUser, OperationLog } from '@/common/decorators';
+import {
+  RequirePermissions,
+  CurrentUser,
+  OperationLog,
+} from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { NoticeService } from './notice.service';
-import { CreateNoticeDto, UpdateNoticeDto, QueryNoticeDto } from './dto';
+import {
+  CreateNoticeDto,
+  UpdateNoticeWithIdDto,
+  QueryNoticeDto,
+  BatchRemoveDto,
+} from './dto';
 
 @ApiTags('公告管理')
 @ApiBearerAuth()
@@ -27,6 +37,38 @@ export class NoticeController {
   @ApiOperation({ summary: '获取公告列表（分页）' })
   async findAll(@Query() queryNoticeDto: QueryNoticeDto) {
     return this.noticeService.findAll(queryNoticeDto);
+  }
+
+  // ============ 用户端接口（仅需 JWT 认证）============
+  // 放在 :id 路由之前，避免被参数化路由捕获
+
+  @Get('user/unread')
+  @ApiOperation({ summary: '获取当前用户未读公告列表' })
+  async findUnreadByUser(@CurrentUser() user: { userId: number }) {
+    return this.noticeService.findUnreadByUser(user.userId);
+  }
+
+  @Put('user/read/:id')
+  @ApiOperation({ summary: '标记公告为已读' })
+  @HttpCode(HttpStatus.OK)
+  async markAsRead(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: { userId: number },
+  ) {
+    return this.noticeService.markAsRead(user.userId, id);
+  }
+
+  @Get(':id/receivers')
+  @RequirePermissions('notice:list')
+  @ApiOperation({ summary: '获取公告接收人列表' })
+  async findReceivers(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('status') status?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe)
+    pageSize?: number,
+  ) {
+    return this.noticeService.findReceivers(id, status, page, pageSize);
   }
 
   @Get(':id')
@@ -57,8 +99,8 @@ export class NoticeController {
     description: '编辑公告',
   })
   @ApiOperation({ summary: '更新公告' })
-  async update(@Body() updateNoticeDto: UpdateNoticeDto & { id: number }) {
-    const { id, ...data } = updateNoticeDto;
+  async update(@Body() dto: UpdateNoticeWithIdDto) {
+    const { id, ...data } = dto;
     return this.noticeService.update(id, data);
   }
 
@@ -118,7 +160,7 @@ export class NoticeController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除公告' })
-  async batchRemove(@Body() body: { ids: number[] }) {
-    return this.noticeService.batchRemove(body.ids);
+  async batchRemove(@Body() dto: BatchRemoveDto) {
+    return this.noticeService.batchRemove(dto.ids);
   }
 }

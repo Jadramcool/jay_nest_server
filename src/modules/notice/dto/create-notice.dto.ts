@@ -9,6 +9,8 @@ import {
   MinLength,
   IsArray,
   IsIn,
+  ValidateIf,
+  IsNotEmpty,
 } from 'class-validator';
 import { NoticeType } from '@prisma/client';
 
@@ -61,7 +63,10 @@ export class CreateNoticeDto {
     description: '发布范围目标ID列表（scopeType不为ALL时必填）',
     example: [{ targetType: 'ROLE', targetId: 1 }],
   })
-  @IsOptional()
+  @ValidateIf(
+    (o: CreateNoticeDto) => o.scopeType !== undefined && o.scopeType !== 'ALL',
+  )
+  @IsNotEmpty()
   @IsArray()
   scopeTargets?: { targetType: string; targetId: number }[];
 }
