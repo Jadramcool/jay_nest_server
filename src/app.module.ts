@@ -6,6 +6,7 @@ import { SystemModule } from './modules/system/system.module';
 import { NoticeModule } from './modules/notice/notice.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { PublicModule } from './modules/public/public.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PublicModule } from './modules/public/public.module';
     NoticeModule,
     UploadModule,
     PublicModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}
