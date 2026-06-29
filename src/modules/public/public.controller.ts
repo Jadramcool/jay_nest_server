@@ -13,7 +13,10 @@ export class PublicController {
 
   @Post('sort')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '拖拽排序' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '拖拽排序',
+  })
   @ApiOperation({ summary: '拖拽排序' })
   async sort(@Body() dto: SortDto) {
     return this.publicService.sort(dto);
@@ -21,7 +24,10 @@ export class PublicController {
 
   @Post('resetSort')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '重置排序' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '重置排序',
+  })
   @ApiOperation({ summary: '重置排序' })
   async resetSort(@Body() dto: ResetSortDto) {
     return this.publicService.resetSort(dto);

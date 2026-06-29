@@ -105,7 +105,7 @@ export function buildQueryWhere<T extends object>(
     const resolved: FieldConfig = config;
     if (typeof resolved === 'object' && resolved.relation) {
       const relationField = resolved.relationField ?? actualField;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const finalValue = resolved.transform ? resolved.transform(value) : value;
       const handler = OPERATOR_HANDLERS[operator];
       where[resolved.relation] = {
@@ -121,7 +121,7 @@ export function buildQueryWhere<T extends object>(
       typeof resolved === 'object' && resolved.field
         ? resolved.field
         : actualField;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const finalValue =
       typeof resolved === 'object' && resolved.transform
         ? resolved.transform(value)

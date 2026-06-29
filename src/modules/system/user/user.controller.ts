@@ -78,10 +78,13 @@ export class UserController {
     return this.userService.updateStatus(id, status);
   }
 
-  @Post(':id/roles')
+  @Post('roles/:id')
   @RequirePermissions('system:user:assign-role')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '分配用户角色' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '分配用户角色',
+  })
   @ApiOperation({ summary: '分配用户角色' })
   async assignRoles(
     @Param('id', ParseIntPipe) id: number,
@@ -90,10 +93,13 @@ export class UserController {
     return this.userService.assignRoles(id, roleIds);
   }
 
-  @Post(':id/reset-password')
+  @Post('reset-password/:id')
   @RequirePermissions('system:user:reset-password')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '重置用户密码' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '重置用户密码',
+  })
   @ApiOperation({ summary: '重置用户密码' })
   async resetPassword(
     @Param('id', ParseIntPipe) id: number,

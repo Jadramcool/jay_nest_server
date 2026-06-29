@@ -29,7 +29,7 @@ describe('PublicService', () => {
             menu: mockModel,
             navigation: mockModel,
             navigationGroup: mockModel,
-          } as unknown as PrismaService,
+          },
         },
       ],
     }).compile();
@@ -45,7 +45,7 @@ describe('PublicService', () => {
   describe('sort', () => {
     it('should throw BadRequestException for unsupported table', async () => {
       await expect(
-        service.sort({ tableName: 'invalid', id: 1 } as unknown as SortDto),
+        service.sort({ tableName: 'invalid', id: 1 }),
       ).rejects.toThrow(BadRequestException);
     });
 

@@ -111,7 +111,10 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.LOGOUT, description: '用户登出' })
+  @OperationLog({
+    operationType: OperationType.LOGOUT,
+    description: '用户登出',
+  })
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
   logout() {
@@ -192,7 +195,10 @@ export class AuthController {
    */
   @Post('user/updatePassword')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '修改密码' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '修改密码',
+  })
   @ApiOperation({ summary: '修改密码' })
   async updatePassword(
     @CurrentUser() user: { userId: number; username: string },

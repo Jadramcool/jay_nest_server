@@ -300,7 +300,8 @@ export class DepartmentService {
   async getMembers(id: number, query?: Record<string, unknown>) {
     const page = Number(query?.page) || 1;
     const pageSize = Number(query?.pageSize) || 10;
-    const includeChildren = query?.includeChildren === 'true' || query?.includeChildren === true;
+    const includeChildren =
+      query?.includeChildren === 'true' || query?.includeChildren === true;
 
     // 收集目标部门 ID 列表
     let deptIds = [id];
@@ -351,7 +352,10 @@ export class DepartmentService {
     );
   }
 
-  private collectChildIds(allDepts: { id: number; parentId: number | null }[], parentId: number): number[] {
+  private collectChildIds(
+    allDepts: { id: number; parentId: number | null }[],
+    parentId: number,
+  ): number[] {
     const ids: number[] = [];
     for (const d of allDepts) {
       if (d.parentId === parentId) {

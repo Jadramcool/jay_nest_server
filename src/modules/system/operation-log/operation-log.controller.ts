@@ -54,7 +54,10 @@ export class OperationLogController {
   @Post('batch-delete')
   @RequirePermissions('system:operation-log:delete')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.DELETE, description: '批量删除操作日志' })
+  @OperationLog({
+    operationType: OperationType.DELETE,
+    description: '批量删除操作日志',
+  })
   @ApiOperation({ summary: '批量删除操作日志' })
   async batchRemove(@Body('ids') ids: number[]) {
     return this.operationLogService.batchRemove(ids);
@@ -63,7 +66,10 @@ export class OperationLogController {
   @Post('clear-expired')
   @RequirePermissions('system:operation-log:delete')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.DELETE, description: '清理过期操作日志' })
+  @OperationLog({
+    operationType: OperationType.DELETE,
+    description: '清理过期操作日志',
+  })
   @ApiOperation({ summary: '清理过期日志' })
   async clearExpired(@Body('days') days: number = 90) {
     return this.operationLogService.clearExpired(days);

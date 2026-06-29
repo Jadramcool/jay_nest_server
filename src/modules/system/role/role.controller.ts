@@ -70,7 +70,10 @@ export class RoleController {
   @Post('update/menu')
   @RequirePermissions('system:role:assign-menu')
   @HttpCode(HttpStatus.OK)
-  @OperationLog({ operationType: OperationType.UPDATE, description: '分配角色菜单权限' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '分配角色菜单权限',
+  })
   @ApiOperation({ summary: '分配角色菜单权限' })
   async assignMenus(@Body() body: { roleId: number; menuIds: number[] }) {
     return this.roleService.assignMenus(body.roleId, body.menuIds);
