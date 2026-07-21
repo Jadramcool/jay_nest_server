@@ -33,6 +33,7 @@ export class PermissionSeedService implements OnModuleInit {
         '权限种子同步失败',
         error instanceof Error ? error.stack : String(error),
       );
+      throw error;
     }
   }
 
@@ -45,8 +46,9 @@ export class PermissionSeedService implements OnModuleInit {
 
       const controller = wrapper.metatype;
       const controllerName = controller.name;
-      const controllerPath =
-        this.reflector.get<string[]>('path', controller)?.[0] || '';
+      const controllerPath = this.getPath(
+        this.reflector.get<string | string[]>('path', controller),
+      );
 
       const prototype = controller.prototype as Record<
         string,
@@ -66,8 +68,9 @@ export class PermissionSeedService implements OnModuleInit {
 
         if (!permissions || permissions.length === 0) continue;
 
-        const methodPath =
-          this.reflector.get<string[]>('path', method)?.[0] || '';
+        const methodPath = this.getPath(
+          this.reflector.get<string | string[]>('path', method),
+        );
 
         for (const code of permissions) {
           seeds.push({
@@ -84,43 +87,77 @@ export class PermissionSeedService implements OnModuleInit {
   }
 
   private async syncToDatabase(seeds: PermissionSeed[]) {
+    const uniqueSeeds = [
+      ...new Map(seeds.map((seed) => [seed.code, seed])).values(),
+    ];
+    const codes = uniqueSeeds.map((seed) => seed.code);
     const existingMenus = await this.prisma.menu.findMany({
-      where: { code: { in: seeds.map((s) => s.code) } },
-      select: { id: true, code: true, name: true, type: true },
+      where: {
+        OR: [{ code: { in: codes } }, { permission: { in: codes } }],
+      },
+      select: { id: true, code: true, permission: true },
     });
 
-    const existingCodeSet = new Set(existingMenus.map((m) => m.code));
-    const missingSeeds = seeds.filter((s) => !existingCodeSet.has(s.code));
+    const permissionMenuIds: number[] = [];
+    let createdCount = 0;
+    for (const seed of uniqueSeeds) {
+      const existing = existingMenus.find(
+        (menu) => menu.permission === seed.code || menu.code === seed.code,
+      );
+      if (existing) {
+        permissionMenuIds.push(existing.id);
+        if (existing.permission !== seed.code) {
+          await this.prisma.menu.update({
+            where: { id: existing.id },
+            data: { permission: seed.code },
+          });
+        }
+        continue;
+      }
 
-    if (missingSeeds.length === 0) {
-      this.logger.log(`权限种子同步完成：${seeds.length} 个权限码均已存在`);
-      return;
-    }
-
-    const uniqueMissing = [
-      ...new Map(missingSeeds.map((s) => [s.code, s])).values(),
-    ];
-
-    for (const seed of uniqueMissing) {
-      await this.prisma.menu.create({
+      const created = await this.prisma.menu.create({
         data: {
           name: seed.code,
           code: seed.code,
+          permission: seed.code,
           type: 'BUTTON',
           pid: null,
           path: null,
           method: '',
-          layout: '',
+          layout: 'normal',
           enable: true,
           show: false,
           needLogin: true,
           order: 0,
         },
+        select: { id: true },
       });
+      permissionMenuIds.push(created.id);
+      createdCount += 1;
     }
 
+    const adminRole = await this.prisma.role.findUnique({
+      where: { code: 'ADMIN' },
+      select: { id: true },
+    });
+    if (!adminRole) {
+      throw new Error('缺少 ADMIN 角色，无法初始化权限');
+    }
+
+    await this.prisma.roleMenu.createMany({
+      data: permissionMenuIds.map((menuId) => ({
+        roleId: adminRole.id,
+        menuId,
+      })),
+      skipDuplicates: true,
+    });
+
     this.logger.log(
-      `权限种子同步完成：新增 ${uniqueMissing.length} 个权限码 [${uniqueMissing.map((s) => s.code).join(', ')}]`,
+      `权限种子同步完成：共 ${uniqueSeeds.length} 个权限码，新增 ${createdCount} 个`,
     );
+  }
+
+  private getPath(path: string | string[] | undefined): string {
+    return Array.isArray(path) ? (path[0] ?? '') : (path ?? '');
   }
 }

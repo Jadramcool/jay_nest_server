@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NoticeService } from './notice.service';
 import { NoticeController } from './notice.controller';
 import { NoticeGateway } from './notice.gateway';
+import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { NoticeGateway } from './notice.gateway';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+        secret: getJwtSecret(configService),
         signOptions: {
           expiresIn: parseInt(
             configService.get<string>('JWT_EXPIRES_IN') || '7200',

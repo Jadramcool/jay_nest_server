@@ -9,6 +9,7 @@
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '@prisma/client';
 import 'dotenv/config';
+import * as bcrypt from 'bcrypt';
 import {
   Department,
   Menu,
@@ -85,9 +86,25 @@ const initUsers = async () => {
   const userCount = await prisma.user.count();
 
   if (userCount === 0) {
+    const adminPassword = getRequiredSeedPassword('SEED_ADMIN_PASSWORD');
+    const userPassword = getRequiredSeedPassword('SEED_USER_PASSWORD');
+    if (adminPassword === userPassword) {
+      throw new Error('SEED_ADMIN_PASSWORD 与 SEED_USER_PASSWORD 不能相同');
+    }
+
+    const users = await Promise.all(
+      User.users.map(async (user) => ({
+        ...user,
+        password: await bcrypt.hash(
+          user.username === 'admin' ? adminPassword : userPassword,
+          10,
+        ),
+      })),
+    );
+
     // 如果没有数据，插入初始数据
     await prisma.user.createMany({
-      data: User.users,
+      data: users,
       skipDuplicates: true,
     });
     console.log('用户数据初始化完成');
@@ -95,6 +112,14 @@ const initUsers = async () => {
     console.log('用户数据已存在，跳过初始化');
   }
 };
+
+function getRequiredSeedPassword(key: string): string {
+  const value = process.env[key];
+  if (!value || value.length < 12) {
+    throw new Error(`${key} 必须配置且至少包含 12 个字符`);
+  }
+  return value;
+}
 
 /**
  * 初始化角色数据

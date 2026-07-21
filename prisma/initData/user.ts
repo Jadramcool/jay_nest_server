@@ -65,7 +65,7 @@ export interface UserSeedData {
  * 1. 管理员用户 - 拥有系统最高权限
  * 2. 普通用户 - 系统普通用户权限
  */
-export const users: UserSeedData[] = [
+export const users: Omit<UserSeedData, 'password'>[] = [
   // ==================== 系统内置用户 ====================
   // 管理员用户 - 拥有系统最高权限
 
@@ -76,7 +76,6 @@ export const users: UserSeedData[] = [
     phone: '15952054087',
     email: '1051780106@qq.com',
     sex: 'MALE',
-    password: '$2b$10$O/urlXV7ZKcRRCmUJfxvP.uuqzpwqK8FCfgt3Yww1Ok08bKgir6U.',
     isDeleted: false,
     status: 1,
     roleType: 'admin',
@@ -93,7 +92,6 @@ export const users: UserSeedData[] = [
     sex: 'OTHER',
     createdTime: '2025-08-01T08:54:12.418Z',
     updatedTime: '2025-08-01T08:54:12.418Z',
-    password: '$2b$10$O/urlXV7ZKcRRCmUJfxvP.uuqzpwqK8FCfgt3Yww1Ok08bKgir6U.',
     isDeleted: false,
     status: 1,
     roleType: 'user',

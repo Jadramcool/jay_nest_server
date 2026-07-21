@@ -73,6 +73,9 @@ describe('AuthService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string, defaultValue?: unknown) => defaultValue),
+            getOrThrow: jest.fn(
+              () => 'test-jwt-secret-with-at-least-32-characters',
+            ),
           },
         },
       ],
@@ -92,9 +95,9 @@ describe('AuthService', () => {
 
       expect(result).toEqual({ id: 1, username: 'testuser' });
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { username: 'testuser' },
-      });
+      expect(prisma.user.findUnique.mock.calls[0]).toEqual([
+        { where: { username: 'testuser' } },
+      ]);
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
@@ -146,6 +149,16 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('tokenType', 'Bearer');
       expect(result).toHaveProperty('expiresIn');
+      expect(jwtService.sign.mock.calls[0][0]).toEqual({
+        id: 1,
+        username: 'testuser',
+        type: 'access',
+      });
+      expect(jwtService.sign.mock.calls[1][0]).toEqual({
+        id: 1,
+        username: 'testuser',
+        type: 'refresh',
+      });
     });
 
     it('should throw on invalid credentials', async () => {
@@ -179,7 +192,7 @@ describe('AuthService', () => {
 
       expect(result).toEqual({ userId: 2, username: 'newuser' });
 
-      expect(prisma.user.create).toHaveBeenCalled();
+      expect(prisma.user.create.mock.calls).toHaveLength(1);
     });
 
     it('should throw BadRequestException when passwords do not match', async () => {
@@ -279,7 +292,7 @@ describe('AuthService', () => {
 
       expect(result).toEqual({ message: '密码修改成功' });
 
-      expect(prisma.user.update).toHaveBeenCalled();
+      expect(prisma.user.update.mock.calls).toHaveLength(1);
     });
 
     it('should throw BadRequestException when old password is wrong', async () => {

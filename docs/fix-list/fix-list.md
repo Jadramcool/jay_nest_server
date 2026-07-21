@@ -48,11 +48,7 @@
 
 - **类型**: 密钥泄露
 - **位置**: `.env`（Git 历史中已包含）
-- **描述**: `.env` 文件在被加入 `.gitignore` 前已被 `git add` 并推送到远程仓库 `github.com/Jadramcool/jay_nest_server.git`。已暴露的敏感信息包括:
-  - 数据库连接: `mysql://root:123456@localhost:3306/mydatabase`
-  - JWT 密钥: `jdmshidashuaibi`（弱密钥）
-  - ARK API Key: `3697ca16-1e7a-4a10-a52f-0bffd79d3a70`
-  - ZHIPUAI API Key: `61cd79c61f5b4502a2b894360701de09.I1Flilm0DW26ccu2`
+- **描述**: `.env` 文件在被加入 `.gitignore` 前已提交到远程仓库。数据库连接、JWT 密钥和第三方 API Key 均应视为已泄露；本文档不再重复记录凭据原文。
 - **影响**: 攻击者可直接连接数据库、伪造 JWT Token、消耗第三方 API 额度。
 - **修复方案**: 
   1. 立即轮换所有已泄露的密钥凭证

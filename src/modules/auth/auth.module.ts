@@ -1,24 +1,28 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, DiscoveryModule } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy, JwtRefreshStrategy } from './strategies';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
+import { PermissionsGuard } from '@/common/guards/permissions.guard';
+import { PermissionSeedService } from '@/common/services/permission-seed.service';
 import { PrismaModule } from '@/prisma/prisma.module';
+import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 @Module({
   imports: [
     PrismaModule,
+    DiscoveryModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+        secret: getJwtSecret(configService),
         signOptions: {
           expiresIn: parseInt(
             configService.get<string>('JWT_EXPIRES_IN') || '7200',
@@ -33,6 +37,7 @@ import { PrismaModule } from '@/prisma/prisma.module';
     AuthService,
     JwtStrategy,
     JwtRefreshStrategy,
+    PermissionSeedService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -40,6 +45,10 @@ import { PrismaModule } from '@/prisma/prisma.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
   ],
   exports: [AuthService],

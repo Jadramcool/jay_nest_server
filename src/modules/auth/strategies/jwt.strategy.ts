@@ -3,10 +3,12 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
+import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 export interface JwtPayload {
   id: number;
   username: string;
+  type: 'access';
   iat?: number;
   exp?: number;
 }
@@ -20,12 +22,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+      secretOrKey: getJwtSecret(configService),
     });
   }
 
   async validate(payload: JwtPayload) {
-    if (!payload.id) {
+    if (!payload.id || payload.type !== 'access') {
       throw new UnauthorizedException('无效的Token');
     }
 
@@ -45,6 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
               select: {
                 code: true,
                 menus: {
+                  where: { menu: { enable: true } },
                   include: {
                     menu: { select: { permission: true } },
                   },
@@ -68,7 +71,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const permissions = [
       ...new Set(
         user.roles.flatMap((ur) =>
-          ur.role.menus.map((rm) => rm.menu.permission).filter(Boolean),
+          ur.role.menus
+            .map((rm) => rm.menu.permission)
+            .filter((permission): permission is string => Boolean(permission)),
         ),
       ),
     ];

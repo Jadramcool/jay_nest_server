@@ -23,6 +23,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MenuType, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 /**
  * JWT Token 载荷接口
@@ -236,8 +237,7 @@ export class AuthService {
       const payload = this.jwtService.verify<TokenPayload & { type: string }>(
         refreshToken,
         {
-          secret:
-            this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
+          secret: getJwtSecret(this.configService),
         },
       );
 
@@ -542,9 +542,10 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '604800'),
     );
 
-    const accessPayload: TokenPayload = {
+    const accessPayload: TokenPayload & { type: 'access' } = {
       id: user.id,
       username: user.username,
+      type: 'access',
     };
 
     const refreshPayload: TokenPayload & { type: string } = {
