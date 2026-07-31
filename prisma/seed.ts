@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import {
   Department,
   Menu,
+  Notice,
   OperationLog,
   Role,
   SysConfig,
@@ -115,8 +116,8 @@ const initUsers = async () => {
 
 function getRequiredSeedPassword(key: string): string {
   const value = process.env[key];
-  if (!value || value.length < 12) {
-    throw new Error(`${key} 必须配置且至少包含 12 个字符`);
+  if (!value || value.length < 6) {
+    throw new Error(`${key} 必须配置且至少包含 6 个字符`);
   }
   return value;
 }
@@ -245,6 +246,23 @@ const initOperationLogs = async () => {
 };
 
 /**
+ * 初始化通知数据
+ */
+const initNotices = async () => {
+  const noticeCount = await prisma.notice.count();
+
+  if (noticeCount === 0) {
+    await prisma.notice.createMany({
+      data: Notice.notices,
+      skipDuplicates: true,
+    });
+    console.log('通知数据初始化完成');
+  } else {
+    console.log('通知数据已存在，跳过初始化');
+  }
+};
+
+/**
  * 主函数：按依赖顺序初始化所有数据
  *
  * 初始化顺序：
@@ -254,7 +272,8 @@ const initOperationLogs = async () => {
  * 4. 菜单数据 - 导航结构
  * 5. 部门数据 - 组织架构
  * 6. 管理员权限 - 权限分配
- * 7. 操作日志 - 示例数据
+ * 7. 通知数据 - 示例通知
+ * 8. 操作日志 - 示例数据
  */
 const main = async () => {
   console.log('开始初始化数据库数据...');
@@ -266,7 +285,8 @@ const main = async () => {
   await initMenus(); // 4. 菜单数据
   await initDepartments(); // 5. 部门数据
   await initAdminPermissions(); // 6. 管理员权限
-  await initOperationLogs(); // 7. 操作日志
+  await initNotices(); // 7. 通知数据
+  await initOperationLogs(); // 8. 操作日志
 
   console.log('数据库数据初始化完成！');
 };

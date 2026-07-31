@@ -30,14 +30,26 @@ export class DashboardService {
 
     const yesterdayStart = new Date(today.getTime() - 86400000);
     const userYesterday = await this.prisma.user.count({
-      where: { isDeleted: false, createdTime: { lt: today, gte: yesterdayStart } },
+      where: {
+        isDeleted: false,
+        createdTime: { lt: today, gte: yesterdayStart },
+      },
     });
     const userDayBefore = await this.prisma.user.count({
-      where: { isDeleted: false, createdTime: { lt: yesterdayStart, gte: new Date(yesterdayStart.getTime() - 86400000) } },
+      where: {
+        isDeleted: false,
+        createdTime: {
+          lt: yesterdayStart,
+          gte: new Date(yesterdayStart.getTime() - 86400000),
+        },
+      },
     });
-    const userTrend = userDayBefore > 0
-      ? Math.round(((userYesterday - userDayBefore) / userDayBefore) * 100)
-      : userYesterday > 0 ? 100 : 0;
+    const userTrend =
+      userDayBefore > 0
+        ? Math.round(((userYesterday - userDayBefore) / userDayBefore) * 100)
+        : userYesterday > 0
+          ? 100
+          : 0;
 
     return {
       userCount,
@@ -123,7 +135,7 @@ export class DashboardService {
       },
     });
 
-    return logs.map(log => ({
+    return logs.map((log) => ({
       id: log.id,
       username: log.username || log.user?.username || '-',
       action: log.description || log.url || '-',

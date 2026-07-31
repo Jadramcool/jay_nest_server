@@ -57,16 +57,15 @@ export class OperationLogInterceptor implements NestInterceptor {
       context.getHandler(),
     );
 
-    const user: AuthenticatedUser | undefined = request.user;
     const startTime = Date.now();
 
     return next.handle().pipe(
       tap({
         next: () => {
-          this.writeLog(request, user, startTime, null, logOptions);
+          this.writeLog(request, startTime, null, logOptions);
         },
         error: (error: unknown) => {
-          this.writeLog(request, user, startTime, error, logOptions);
+          this.writeLog(request, startTime, error, logOptions);
         },
       }),
     );
@@ -74,7 +73,6 @@ export class OperationLogInterceptor implements NestInterceptor {
 
   private writeLog(
     request: AuthenticatedRequest,
-    user: AuthenticatedUser | undefined,
     startTime: number,
     error: unknown,
     logOptions: OperationLogOptions | undefined,
@@ -98,8 +96,8 @@ export class OperationLogInterceptor implements NestInterceptor {
     const errorMessage = error instanceof Error ? error.message : undefined;
 
     void this.operationLogService.createLogAsync({
-      userId: user?.userId,
-      username: user?.username,
+      userId: request.user?.userId,
+      username: request.user?.username,
       operationType,
       module,
       description,

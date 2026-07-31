@@ -9,6 +9,7 @@
  */
 export * as Department from './department';
 export * as Menu from './menu';
+export * as Notice from './notice';
 export * as OperationLog from './operationLog';
 export * as Role from './role';
 export * as SysConfig from './sysConfig';

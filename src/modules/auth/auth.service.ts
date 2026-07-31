@@ -156,8 +156,15 @@ export class AuthService {
    * @param password - 密码
    * @returns 返回 Token 对（访问令牌和刷新令牌）
    */
-  async login(username: string, password: string): Promise<TokenPair> {
+  async login(
+    username: string,
+    password: string,
+    req?: { user?: { userId: number; username: string } },
+  ): Promise<TokenPair> {
     const user = await this.validateUser(username, password);
+    if (req) {
+      req.user = { userId: user.id, username: user.username };
+    }
     const tokens = this.generateTokens(user);
     return tokens;
   }
@@ -342,7 +349,7 @@ export class AuthService {
     for (const userRole of userRoles) {
       for (const roleMenu of userRole.role.menus) {
         const menu = roleMenu.menu;
-        if (menu.enable && menu.show && !menuMap.has(menu.id)) {
+        if (menu.enable && !menuMap.has(menu.id)) {
           menuMap.set(menu.id, {
             id: menu.id,
             name: menu.name,

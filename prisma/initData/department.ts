@@ -30,7 +30,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: null,
     level: 1,
     sortOrder: 1,
-    status: 0, // 0: 正常, 1: 禁用
+    status: 1, // 0: 禁用, 1: 启用
   },
 
   // ==================== Level 2: 事业部 ====================
@@ -42,7 +42,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 1,
     level: 2,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 3,
@@ -52,7 +52,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 1,
     level: 2,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
   {
     id: 4,
@@ -62,7 +62,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 1,
     level: 2,
     sortOrder: 3,
-    status: 0,
+    status: 1,
   },
   {
     id: 5,
@@ -72,7 +72,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 1,
     level: 2,
     sortOrder: 4,
-    status: 0,
+    status: 1,
   },
   {
     id: 6,
@@ -82,7 +82,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 1,
     level: 2,
     sortOrder: 5,
-    status: 0,
+    status: 1,
   },
 
   // ==================== Level 3: 技术事业部下属部门 ====================
@@ -94,7 +94,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 2,
     level: 3,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 8,
@@ -104,7 +104,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 2,
     level: 3,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
   {
     id: 9,
@@ -114,7 +114,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 2,
     level: 3,
     sortOrder: 3,
-    status: 0,
+    status: 1,
   },
   {
     id: 10,
@@ -124,7 +124,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 2,
     level: 3,
     sortOrder: 4,
-    status: 0,
+    status: 1,
   },
 
   // ==================== Level 3: 市场事业部下属部门 ====================
@@ -136,7 +136,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 3,
     level: 3,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 12,
@@ -146,7 +146,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 3,
     level: 3,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
   {
     id: 13,
@@ -156,7 +156,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 3,
     level: 3,
     sortOrder: 3,
-    status: 0,
+    status: 1,
   },
 
   // ==================== Level 3: 运营事业部下属部门 ====================
@@ -168,7 +168,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 4,
     level: 3,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 15,
@@ -178,7 +178,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 4,
     level: 3,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
   {
     id: 16,
@@ -188,7 +188,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 4,
     level: 3,
     sortOrder: 3,
-    status: 0,
+    status: 1,
   },
 
   // ==================== Level 3: 财务事业部下属部门 ====================
@@ -200,7 +200,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 5,
     level: 3,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 18,
@@ -210,7 +210,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 5,
     level: 3,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
 
   // ==================== Level 3: 人力资源事业部下属部门 ====================
@@ -222,7 +222,7 @@ export const departments: DepartmentSeedData[] = [
     parentId: 6,
     level: 3,
     sortOrder: 1,
-    status: 0,
+    status: 1,
   },
   {
     id: 20,
@@ -232,6 +232,6 @@ export const departments: DepartmentSeedData[] = [
     parentId: 6,
     level: 3,
     sortOrder: 2,
-    status: 0,
+    status: 1,
   },
 ];

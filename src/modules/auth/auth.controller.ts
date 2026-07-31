@@ -20,6 +20,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -62,8 +63,15 @@ export class AuthController {
   @ApiOperation({ summary: '用户登录' })
   @ApiResponse({ status: 200, description: '登录成功' })
   @ApiResponse({ status: 401, description: '用户名或密码错误' })
-  async login(@Body() loginDto: LoginDto): Promise<TokenPair> {
-    return this.authService.login(loginDto.username, loginDto.password);
+  async login(
+    @Req() request: { user?: { userId: number; username: string } },
+    @Body() loginDto: LoginDto,
+  ): Promise<TokenPair> {
+    return this.authService.login(
+      loginDto.username,
+      loginDto.password,
+      request,
+    );
   }
 
   /**
@@ -106,9 +114,7 @@ export class AuthController {
    * 用户登出接口
    *
    * @returns 返回登出成功消息
-   * @note 该接口公开访问，无需认证
    */
-  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @OperationLog({

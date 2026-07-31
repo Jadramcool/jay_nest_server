@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -11,8 +12,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 
 type NoticeSocket = Socket<any, any, any, { userId?: number }>;
 
+const websocketNamespace = process.env.WEBSOCKET_NAMESPACE?.trim() || '/notice';
+
 @WebSocketGateway({
-  namespace: '/notice',
+  namespace: websocketNamespace,
   cors: {
     origin: true,
     credentials: true,
