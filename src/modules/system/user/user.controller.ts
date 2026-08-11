@@ -8,13 +8,23 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  BadRequestException,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { QueryWithOps } from '@/common/decorators/query-with-ops.decorator';
 import { UserService } from './user.service';
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
+import {
+  buildUserExportWorkbook,
+  buildUserImportTemplateWorkbook,
+} from './excel.util';
 
 @ApiTags('用户管理')
 @ApiBearerAuth()
@@ -106,5 +116,63 @@ export class UserController {
     @Body('newPassword') newPassword: string,
   ) {
     return this.userService.resetPassword(id, newPassword);
+  }
+
+  // ═══════════ Excel 导入导出 ═══════════
+
+  @Get('export')
+  @RequirePermissions('system:user:list')
+  @OperationLog({
+    operationType: OperationType.EXPORT,
+    description: '导出用户列表',
+  })
+  @ApiOperation({ summary: '导出用户列表(Excel)' })
+  async exportUsers(
+    @QueryWithOps(QueryUserDto) queryUserDto: QueryUserDto,
+    @Res() res: Response,
+  ) {
+    const rows = await this.userService.exportUsers(queryUserDto);
+    const workbook = buildUserExportWorkbook(rows);
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="users-${Date.now()}.xlsx"`,
+    });
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  @Get('import/template')
+  @RequirePermissions('system:user:create')
+  @OperationLog({
+    operationType: OperationType.EXPORT,
+    description: '下载用户导入模板',
+  })
+  @ApiOperation({ summary: '下载用户导入模板' })
+  async downloadImportTemplate(@Res() res: Response) {
+    const workbook = buildUserImportTemplateWorkbook();
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="user-import-template.xlsx"',
+    });
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  @Post('import')
+  @RequirePermissions('system:user:create')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @OperationLog({
+    operationType: OperationType.IMPORT,
+    description: '导入用户',
+  })
+  @ApiOperation({ summary: '导入用户(Excel)' })
+  async importUsers(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('请选择要导入的文件');
+    }
+    return this.userService.importUsers(file.buffer);
   }
 }

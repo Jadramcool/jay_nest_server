@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Prisma, OperationType, OperationStatus } from '@prisma/client';
+import { Prisma, OperationStatus } from '@prisma/client';
 import { QueryOperationLogDto } from './dto';
 import { paginate } from '@/common/utils/pagination.util';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
@@ -14,18 +14,16 @@ export class OperationLogService {
     return this.prisma.operationLog.create({ data });
   }
 
-  async createLogAsync(data: ICreateOperationLog) {
-    setImmediate(async () => {
-      try {
-        await this.prisma.operationLog.create({ data });
-      } catch {
+  createLogAsync(data: ICreateOperationLog): void {
+    setImmediate(() => {
+      void this.prisma.operationLog.create({ data }).catch(() => {
         // 异步日志写入失败不影响主流程
-      }
+      });
     });
   }
 
   async findAll(queryDto: QueryOperationLogDto) {
-    const { page = 1, pageSize = 10, startTime, endTime } = queryDto;
+    const { page = 1, pageSize = 20, startTime, endTime } = queryDto;
 
     const where: Prisma.OperationLogWhereInput = {
       ...buildQueryWhere(queryDto, {

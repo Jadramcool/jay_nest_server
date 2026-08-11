@@ -5,7 +5,7 @@ import * as fs from 'fs';
 
 @Injectable()
 export class UploadService {
-  async uploadFile(
+  uploadFile(
     file: Express.Multer.File,
     options: {
       fileType?: string;
@@ -71,7 +71,7 @@ export class UploadService {
     };
   }
 
-  async uploadFiles(
+  uploadFiles(
     files: Express.Multer.File[],
     options: {
       fileType?: string;
@@ -84,11 +84,7 @@ export class UploadService {
       throw new BadRequestException('请选择要上传的文件');
     }
 
-    const results = await Promise.all(
-      files.map((file) => this.uploadFile(file, options)),
-    );
-
-    return results;
+    return files.map((file) => this.uploadFile(file, options));
   }
 
   private generateSafeFileName(originalName: string): string {

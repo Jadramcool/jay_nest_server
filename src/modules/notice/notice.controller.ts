@@ -7,7 +7,6 @@ import {
   Param,
   Query,
   ParseIntPipe,
-  DefaultValuePipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -23,6 +22,7 @@ import {
   CreateNoticeDto,
   UpdateNoticeWithIdDto,
   QueryNoticeDto,
+  QueryNoticeReceiversDto,
   BatchRemoveDto,
 } from './dto';
 
@@ -63,12 +63,9 @@ export class NoticeController {
   @ApiOperation({ summary: '获取公告接收人列表' })
   async findReceivers(
     @Param('id', ParseIntPipe) id: number,
-    @Query('status') status?: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
-    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe)
-    pageSize?: number,
+    @Query() query: QueryNoticeReceiversDto,
   ) {
-    return this.noticeService.findReceivers(id, status, page, pageSize);
+    return this.noticeService.findReceivers(id, query);
   }
 
   @Get(':id')

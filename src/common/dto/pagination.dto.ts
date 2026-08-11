@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsInt, Min, IsOptional } from 'class-validator';
+
+export const DEFAULT_PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;
 
 export class PaginationDto {
   @ApiProperty({
@@ -17,13 +20,15 @@ export class PaginationDto {
 
   @ApiProperty({
     description: '每页数量',
-    example: 10,
+    example: DEFAULT_PAGE_SIZE,
     required: false,
     minimum: 1,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(({ value }) =>
+    Math.min(Number(value ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE),
+  )
   @IsInt()
   @Min(1)
-  pageSize?: number = 10;
+  pageSize?: number = DEFAULT_PAGE_SIZE;
 }

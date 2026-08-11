@@ -39,7 +39,7 @@ export class RoleService {
   }
 
   async findAll(queryRoleDto: QueryRoleDto) {
-    const { page = 1, pageSize = 10, includeDeleted } = queryRoleDto;
+    const { page = 1, pageSize = 20, includeDeleted } = queryRoleDto;
 
     const where: Prisma.RoleWhereInput = {
       ...buildQueryWhere(queryRoleDto, {
@@ -83,6 +83,7 @@ export class RoleService {
       code: role.code,
       name: role.name,
       description: role.description,
+      isSystem: role.isSystem,
       menuCount: role.menus.length,
       userCount: role.users.length,
       menus: role.menus.map((rm) => rm.menu),
@@ -104,6 +105,7 @@ export class RoleService {
       code: role.code,
       name: role.name,
       description: role.description,
+      isSystem: role.isSystem,
       createdTime: role.createdTime,
     }));
   }
@@ -136,6 +138,7 @@ export class RoleService {
       code: role.code,
       name: role.name,
       description: role.description,
+      isSystem: role.isSystem,
       menus: role.menus.map((rm) => rm.menu),
       users: role.users.map((ur) => ur.user),
       createdTime: role.createdTime,
@@ -150,6 +153,10 @@ export class RoleService {
 
     if (!role) {
       throw new NotFoundException(`角色 ID ${id} 不存在`);
+    }
+
+    if (role.isSystem) {
+      throw new BadRequestException('系统内置角色不可修改');
     }
 
     if (updateRoleDto.code || updateRoleDto.name) {
@@ -190,6 +197,10 @@ export class RoleService {
       throw new NotFoundException(`角色 ID ${id} 不存在`);
     }
 
+    if (role.isSystem) {
+      throw new BadRequestException('系统内置角色不可删除');
+    }
+
     await this.prisma.role.update({
       where: { id },
       data: {
@@ -208,6 +219,10 @@ export class RoleService {
 
     if (!role) {
       throw new NotFoundException(`角色 ID ${roleId} 不存在`);
+    }
+
+    if (role.isSystem) {
+      throw new BadRequestException('系统内置角色的菜单权限不可调整');
     }
 
     await this.prisma.roleMenu.deleteMany({

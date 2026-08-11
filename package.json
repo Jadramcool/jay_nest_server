@@ -21,7 +21,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "openapi:export": "ts-node -r tsconfig-paths/register scripts/export-openapi.ts ../jdm-admin/typings/openapi.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -42,6 +43,7 @@
     "class-validator": "^0.15.1",
     "dayjs": "^1.11.20",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "iconv-lite": "^0.7.2",
     "jsonwebtoken": "^9.0.3",
     "lodash": "^4.17.23",
@@ -53,6 +55,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
+    "svg-captcha": "^1.4.0",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

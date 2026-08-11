@@ -8,6 +8,7 @@
  *
  */
 export * as Department from './department';
+export * as Dict from './dict';
 export * as Menu from './menu';
 export * as Notice from './notice';
 export * as OperationLog from './operationLog';

@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { SessionService } from '@/modules/session/session.service';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt');
@@ -18,6 +19,7 @@ jest.mock('bcrypt');
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: jest.Mocked<PrismaService>;
+  let sessionService: jest.Mocked<SessionService>;
   let jwtService: jest.Mocked<JwtService>;
 
   const mockUser = {
@@ -59,6 +61,10 @@ describe('AuthService', () => {
             },
             userRole: {
               findMany: jest.fn(),
+              create: jest.fn(),
+            },
+            role: {
+              findFirst: jest.fn(),
             },
           },
         },
@@ -67,6 +73,16 @@ describe('AuthService', () => {
           useValue: {
             sign: jest.fn(),
             verify: jest.fn(),
+            decode: jest.fn(),
+          },
+        },
+        {
+          provide: SessionService,
+          useValue: {
+            createSession: jest.fn(),
+            findValidSession: jest.fn(),
+            rotateSession: jest.fn(),
+            removeByRefreshToken: jest.fn(),
           },
         },
         {
@@ -83,6 +99,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get(PrismaService);
+    sessionService = module.get<SessionService>(SessionService);
     jwtService = module.get(JwtService);
   });
 
@@ -103,9 +120,16 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when user not found', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.validateUser('nonexistent', 'password'),
-      ).rejects.toThrow(UnauthorizedException);
+      const error = await service
+        .validateUser('nonexistent', 'password')
+        .catch((reason: unknown) => reason);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        code: 40103,
+        errorCode: 'INVALID_CREDENTIALS',
+        message: '用户名或密码错误',
+      });
     });
 
     it('should throw UnauthorizedException when user is deleted', async () => {
@@ -131,9 +155,16 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(
-        service.validateUser('testuser', 'wrongpassword'),
-      ).rejects.toThrow(UnauthorizedException);
+      const error = await service
+        .validateUser('testuser', 'wrongpassword')
+        .catch((reason: unknown) => reason);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        code: 40103,
+        errorCode: 'INVALID_CREDENTIALS',
+        message: '用户名或密码错误',
+      });
     });
   });
 
@@ -143,22 +174,35 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jwtService.sign.mockReturnValue('mock-token');
 
+      jwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 604800,
+        jti: 'jti-1',
+      });
+      sessionService.createSession.mockResolvedValue({ id: 1 });
+
       const result = await service.login('testuser', 'password123');
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('tokenType', 'Bearer');
       expect(result).toHaveProperty('expiresIn');
-      expect(jwtService.sign.mock.calls[0][0]).toEqual({
-        id: 1,
-        username: 'testuser',
-        type: 'access',
-      });
+      expect(jwtService.sign.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          id: 1,
+          username: 'testuser',
+          type: 'access',
+          jti: expect.any(String),
+        }),
+      );
       expect(jwtService.sign.mock.calls[1][0]).toEqual({
         id: 1,
         username: 'testuser',
         type: 'refresh',
       });
+      // 登录创建会话
+      expect(sessionService.createSession.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ userId: 1, refreshToken: 'mock-token' }),
+      );
     });
 
     it('should throw on invalid credentials', async () => {
@@ -186,6 +230,7 @@ describe('AuthService', () => {
         id: 2,
         username: 'newuser',
       });
+      prisma.role.findFirst.mockResolvedValue({ id: 2 });
       (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$10$hashed');
 
       const result = await service.register(registerData);
@@ -193,6 +238,31 @@ describe('AuthService', () => {
       expect(result).toEqual({ userId: 2, username: 'newuser' });
 
       expect(prisma.user.create.mock.calls).toHaveLength(1);
+      expect(prisma.role.findFirst.mock.calls[0]).toEqual([
+        { where: { code: 'USER', isDeleted: false }, select: { id: true } },
+      ]);
+      expect(prisma.userRole.create.mock.calls[0]).toEqual([
+        { data: { userId: 2, roleId: 2 } },
+      ]);
+    });
+
+    it('should skip default role assignment when USER role not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        ...mockUser,
+        id: 3,
+        username: 'nouserrole',
+      });
+      prisma.role.findFirst.mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$10$hashed');
+
+      const result = await service.register({
+        ...registerData,
+        username: 'nouserrole',
+      });
+
+      expect(result).toEqual({ userId: 3, username: 'nouserrole' });
+      expect(prisma.userRole.create.mock.calls).toHaveLength(0);
     });
 
     it('should throw BadRequestException when passwords do not match', async () => {
@@ -230,10 +300,33 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue(mockUser);
       jwtService.sign.mockReturnValue('new-token');
 
+      sessionService.findValidSession.mockResolvedValue({ id: 1, userId: 1 });
+      sessionService.rotateSession.mockResolvedValue({ count: 1 });
+      jwtService.decode.mockReturnValue({ jti: 'new-jti' });
+
       const result = await service.refresh('valid-refresh-token');
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
+      // 刷新令牌轮换(accessJti 由 generateTokens 生成)
+      expect(sessionService.rotateSession.mock.calls[0]).toEqual([
+        'valid-refresh-token',
+        'new-token',
+        expect.any(String),
+      ]);
+    });
+
+    it('should throw UnauthorizedException when session revoked', async () => {
+      jwtService.verify.mockReturnValue({
+        id: 1,
+        username: 'testuser',
+        type: 'refresh',
+      });
+      sessionService.findValidSession.mockResolvedValue(null);
+
+      await expect(service.refresh('revoked-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException for invalid token type', async () => {

@@ -4,8 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-import { CreateNoticeDto, UpdateNoticeDto, QueryNoticeDto } from './dto';
+import { Notice, NoticeTarget, Prisma, User } from '@prisma/client';
+import {
+  CreateNoticeDto,
+  UpdateNoticeDto,
+  QueryNoticeDto,
+  QueryNoticeReceiversDto,
+} from './dto';
 import { NoticeGateway } from './notice.gateway';
 import { paginate } from '@/common/utils/pagination.util';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
@@ -21,11 +26,16 @@ export interface NoticeResponse {
   isPinned: boolean;
   isMandatory: boolean;
   scopeType: string;
-  scopeTargets: any[];
+  scopeTargets: NoticeTarget[];
   publishedAt: Date | null;
   createdTime: Date;
   updatedTime: Date;
 }
+
+type NoticeForResponse = Notice & {
+  author?: Pick<User, 'name' | 'username'> | null;
+  targets?: NoticeTarget[];
+};
 
 @Injectable()
 export class NoticeService {
@@ -77,7 +87,7 @@ export class NoticeService {
   }
 
   async findAll(queryNoticeDto: QueryNoticeDto) {
-    const { page = 1, pageSize = 10, ...filters } = queryNoticeDto;
+    const { page = 1, pageSize = 20, ...filters } = queryNoticeDto;
 
     const where: Prisma.NoticeWhereInput = {
       isDeleted: false,
@@ -190,7 +200,7 @@ export class NoticeService {
       );
     }
 
-    const updateData: any = { ...data };
+    const updateData: Prisma.NoticeUncheckedUpdateInput = { ...data };
     if (isPublishingNow) {
       updateData.publishedAt = new Date();
     }
@@ -251,7 +261,9 @@ export class NoticeService {
     }
 
     const newStatus = notice.status === 1 ? 0 : 1;
-    const updateData: any = { status: newStatus };
+    const updateData: Prisma.NoticeUncheckedUpdateInput = {
+      status: newStatus,
+    };
 
     if (newStatus === 1 && !notice.publishedAt) {
       updateData.publishedAt = new Date();
@@ -403,12 +415,8 @@ export class NoticeService {
   /**
    * 获取公告接收人列表
    */
-  async findReceivers(
-    noticeId: number,
-    status?: string,
-    page = 1,
-    pageSize = 10,
-  ) {
+  async findReceivers(noticeId: number, query: QueryNoticeReceiversDto) {
+    const { readStatus, page = 1, pageSize = 20 } = query;
     const notice = await this.prisma.notice.findUnique({
       where: { id: noticeId },
     });
@@ -417,9 +425,9 @@ export class NoticeService {
     }
 
     const where: Prisma.UserNoticeWhereInput = { noticeId, isDeleted: false };
-    if (status === 'read') {
+    if (readStatus === 'read') {
       where.readTime = { not: null };
-    } else if (status === 'unread') {
+    } else if (readStatus === 'unread') {
       where.readTime = null;
     }
 
@@ -464,8 +472,8 @@ export class NoticeService {
       this.prisma.userNotice.count({ where }),
     ]);
 
-    return {
-      list: records.map((r) => ({
+    return paginate(
+      records.map((r) => ({
         userId: r.user.id,
         username: r.user.username,
         name: r.user.name,
@@ -484,8 +492,8 @@ export class NoticeService {
         readTime: r.readTime,
         assignedTime: r.assignedTime,
       })),
-      pagination: { page, pageSize, total },
-    };
+      { page, pageSize, total },
+    );
   }
 
   /**
@@ -509,7 +517,7 @@ export class NoticeService {
       orderBy: [{ notice: { isPinned: 'desc' } }, { assignedTime: 'desc' }],
     });
 
-    return userNotices.map((un: any) => ({
+    return userNotices.map((un) => ({
       noticeId: un.noticeId,
       id: un.id,
       title: un.notice.title,
@@ -619,7 +627,7 @@ export class NoticeService {
     noticeId: number,
     scopeType: string,
     targets?: { targetType: string; targetId: number }[],
-    existingNotice?: any,
+    existingNotice?: NoticeForResponse,
   ) {
     const userIds = await this.resolveTargetUserIds(
       scopeType,
@@ -698,7 +706,7 @@ export class NoticeService {
   /**
    * 格式化公告输出
    */
-  private formatNotice(notice: any): NoticeResponse {
+  private formatNotice(notice: NoticeForResponse): NoticeResponse {
     return {
       id: notice.id,
       title: notice.title,

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Prisma, SysConfig, ConfigType } from '@prisma/client';
+import { Prisma, SysConfig } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
   CreateSysConfigDto,
@@ -37,7 +37,7 @@ export class SysConfigService {
   }
 
   async findAll(querySysConfigDto: QuerySysConfigDto) {
-    const { page = 1, pageSize = 10 } = querySysConfigDto;
+    const { page = 1, pageSize = 20 } = querySysConfigDto;
 
     const where: Prisma.SysConfigWhereInput = {
       ...buildQueryWhere(querySysConfigDto, {

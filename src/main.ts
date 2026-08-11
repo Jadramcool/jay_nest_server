@@ -84,4 +84,4 @@ async function bootstrap() {
   console.log(`📚 API文档: http://localhost:${port}/api-docs`);
   console.log('='.repeat(60) + '\n');
 }
-bootstrap();
+void bootstrap();

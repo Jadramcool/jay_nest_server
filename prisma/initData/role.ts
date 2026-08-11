@@ -24,6 +24,7 @@ export const roles: RoleSeedData[] = [
     name: '管理员',
     description: '系统管理员，拥有所有权限',
     isDeleted: false,
+    isSystem: true,
   },
 
   // 普通用户角色 - 系统普通用户权限

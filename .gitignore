@@ -34,3 +34,6 @@ coverage/
 
 # lock - pnpm preferred
 package-lock.json
+
+# Claude 个人配置
+.claude/

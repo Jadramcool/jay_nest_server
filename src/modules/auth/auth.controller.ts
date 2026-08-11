@@ -20,7 +20,9 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  HttpException,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -29,6 +31,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService, TokenPair } from './auth.service';
+import { LoginGuardService } from './login-guard.service';
 import {
   LoginDto,
   RegisterDto,
@@ -47,12 +50,27 @@ import { OperationType } from '@prisma/client';
 @ApiBearerAuth()
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly loginGuardService: LoginGuardService,
+  ) {}
+
+  /**
+   * 获取登录图形验证码
+   * @note 该接口公开访问
+   */
+  @Public()
+  @Get('captcha')
+  @ApiOperation({ summary: '获取登录验证码' })
+  @ApiResponse({ status: 200, description: '返回 captchaId 与 base64 图片' })
+  getCaptcha() {
+    return this.loginGuardService.createCaptcha();
+  }
 
   /**
    * 用户登录接口
    *
-   * @param loginDto - 登录参数，包含用户名和密码
+   * @param loginDto - 登录参数，包含用户名、密码与验证码
    * @returns 返回 Token 对（访问令牌和刷新令牌）
    * @note 该接口公开访问，无需认证
    */
@@ -63,15 +81,54 @@ export class AuthController {
   @ApiOperation({ summary: '用户登录' })
   @ApiResponse({ status: 200, description: '登录成功' })
   @ApiResponse({ status: 401, description: '用户名或密码错误' })
+  @ApiResponse({ status: 429, description: '登录失败次数过多' })
   async login(
-    @Req() request: { user?: { userId: number; username: string } },
+    @Req()
+    request: {
+      user?: { userId: number; username: string };
+      ip: string;
+      headers: { 'user-agent'?: string };
+    },
     @Body() loginDto: LoginDto,
   ): Promise<TokenPair> {
-    return this.authService.login(
-      loginDto.username,
-      loginDto.password,
-      request,
-    );
+    // 限流检查(用户名 + IP)
+    this.loginGuardService.assertNotLocked(loginDto.username, request.ip);
+
+    // 验证码校验(缺失/错误/过期 → 422,计入失败次数)
+    if (!loginDto.captchaId || !loginDto.captcha) {
+      throw new HttpException(
+        { code: 42201, message: '请输入验证码' },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    try {
+      this.loginGuardService.consumeCaptcha(
+        loginDto.captchaId,
+        loginDto.captcha,
+      );
+    } catch (error) {
+      this.loginGuardService.recordFailure(loginDto.username, request.ip);
+      throw error;
+    }
+
+    try {
+      const tokens = await this.authService.login(
+        loginDto.username,
+        loginDto.password,
+        {
+          ...request,
+          userAgent: request.headers['user-agent'],
+        },
+      );
+      this.loginGuardService.resetFailures(loginDto.username, request.ip);
+      return tokens;
+    } catch (error) {
+      // 密码/账号错误(401)计入失败次数
+      if (error instanceof UnauthorizedException) {
+        this.loginGuardService.recordFailure(loginDto.username, request.ip);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -123,8 +180,8 @@ export class AuthController {
   })
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
-  logout() {
-    return this.authService.logout();
+  logout(@Body('refreshToken') refreshToken?: string) {
+    return this.authService.logout(refreshToken);
   }
 
   /**

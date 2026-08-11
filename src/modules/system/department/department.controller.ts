@@ -19,6 +19,7 @@ import {
   CreateDepartmentDto,
   UpdateDepartmentDto,
   QueryDepartmentDto,
+  QueryDepartmentMembersDto,
 } from './dto';
 
 @ApiTags('部门管理')
@@ -69,14 +70,11 @@ export class DepartmentController {
     return this.departmentService.findOne(id);
   }
 
-  @Get('members/:id')
+  @Get('members')
   @RequirePermissions('system:department:list')
   @ApiOperation({ summary: '获取部门成员列表' })
-  async getMembers(
-    @Param('id', ParseIntPipe) id: number,
-    @Query() query?: Record<string, unknown>,
-  ) {
-    return this.departmentService.getMembers(id, query);
+  async getMembers(@Query() query: QueryDepartmentMembersDto) {
+    return this.departmentService.getMembers(query.departmentId, query);
   }
 
   @Post('create')

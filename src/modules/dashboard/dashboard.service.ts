@@ -102,13 +102,13 @@ export class DashboardService {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const cpus = os.cpus();
-    const cpuCount = cpus.length;
     let totalIdle = 0;
     let totalTick = 0;
     for (const cpu of cpus) {
-      for (const type in cpu.times) {
-        totalTick += (cpu.times as any)[type];
-      }
+      totalTick += Object.values(cpu.times).reduce(
+        (sum, time) => sum + time,
+        0,
+      );
       totalIdle += cpu.times.idle;
     }
 

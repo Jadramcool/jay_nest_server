@@ -7,6 +7,9 @@ import { NoticeModule } from './modules/notice/notice.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { PublicModule } from './modules/public/public.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { TodoModule } from './modules/todo/todo.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
+import { SessionModule } from './modules/session/session.module';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     UploadModule,
     PublicModule,
     DashboardModule,
+    TodoModule,
+    MetricsModule,
+    SessionModule,
   ],
 })
 export class AppModule {}

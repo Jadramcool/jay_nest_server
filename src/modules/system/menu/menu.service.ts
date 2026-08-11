@@ -7,6 +7,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { Menu, Prisma, MenuType } from '@prisma/client';
 import { CreateMenuDto, UpdateMenuDto, QueryMenuDto } from './dto';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
+import { paginate } from '@/common/utils/pagination.util';
 
 export interface MenuTreeNode {
   id: number;
@@ -96,6 +97,7 @@ export class MenuService {
   }
 
   async findAll(queryMenuDto: QueryMenuDto) {
+    const { page = 1, pageSize = 20 } = queryMenuDto;
     const where: Prisma.MenuWhereInput = {
       ...buildQueryWhere(queryMenuDto, {
         name: 'contains',
@@ -108,15 +110,20 @@ export class MenuService {
       }),
     };
 
-    const menus = await this.prisma.menu.findMany({
-      where,
-      orderBy: { order: 'asc' },
-    });
+    const [menus, total] = await Promise.all([
+      this.prisma.menu.findMany({
+        where,
+        orderBy: { order: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.menu.count({ where }),
+    ]);
 
-    return {
-      list: menus.map((menu) => this.formatMenu(menu)),
-      total: menus.length,
-    };
+    return paginate(
+      menus.map((menu) => this.formatMenu(menu)),
+      { page, pageSize, total },
+    );
   }
 
   async findOne(id: number) {

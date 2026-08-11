@@ -20,10 +20,12 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MenuType, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { getJwtSecret } from '@/common/utils/jwt-config.util';
+import { SessionService } from '@/modules/session/session.service';
 
 /**
  * JWT Token 载荷接口
@@ -111,6 +113,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly sessionService: SessionService,
   ) {}
 
   /**
@@ -127,7 +130,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('用户名或密码错误');
+      throw this.invalidCredentialsException();
     }
 
     if (user.isDeleted) {
@@ -140,13 +143,21 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('用户名或密码错误');
+      throw this.invalidCredentialsException();
     }
 
     return {
       id: user.id,
       username: user.username,
     };
+  }
+
+  private invalidCredentialsException(): UnauthorizedException {
+    return new UnauthorizedException({
+      code: 40103,
+      message: '用户名或密码错误',
+      errorCode: 'INVALID_CREDENTIALS',
+    });
   }
 
   /**
@@ -159,13 +170,28 @@ export class AuthService {
   async login(
     username: string,
     password: string,
-    req?: { user?: { userId: number; username: string } },
+    req?: {
+      user?: { userId: number; username: string };
+      ip?: string;
+      userAgent?: string;
+    },
   ): Promise<TokenPair> {
     const user = await this.validateUser(username, password);
     if (req) {
       req.user = { userId: user.id, username: user.username };
     }
     const tokens = this.generateTokens(user);
+
+    // 创建登录会话(强制下线/在线列表依赖)
+    await this.sessionService.createSession({
+      userId: user.id,
+      refreshToken: tokens.refreshToken,
+      accessJti: tokens.accessJti,
+      ipAddress: req?.ip,
+      userAgent: req?.userAgent,
+      expiresAt: new Date(Date.now() + tokens.refreshExpiresIn * 1000),
+    });
+
     return tokens;
   }
 
@@ -226,6 +252,21 @@ export class AuthService {
       },
     });
 
+    // 为新用户分配默认的普通用户角色（USER），未找到时静默跳过
+    const defaultRole = await this.prisma.role.findFirst({
+      where: { code: 'USER', isDeleted: false },
+      select: { id: true },
+    });
+
+    if (defaultRole) {
+      await this.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: defaultRole.id,
+        },
+      });
+    }
+
     return {
       userId: user.id,
       username: user.username,
@@ -252,6 +293,12 @@ export class AuthService {
         throw new UnauthorizedException('无效的刷新令牌');
       }
 
+      // 会话校验:被强制下线/登出的 refreshToken 不再有效
+      const session = await this.sessionService.findValidSession(refreshToken);
+      if (!session) {
+        throw new UnauthorizedException('登录状态已失效，请重新登录');
+      }
+
       const user = await this.prisma.user.findUnique({
         where: { id: payload.id },
       });
@@ -260,10 +307,17 @@ export class AuthService {
         throw new UnauthorizedException('用户不存在或已删除');
       }
 
-      return this.generateTokens({
+      const tokens = this.generateTokens({
         id: user.id,
         username: user.username,
       });
+      // 刷新令牌轮换:旧 refreshToken 立即失效
+      await this.sessionService.rotateSession(
+        refreshToken,
+        tokens.refreshToken,
+        tokens.accessJti,
+      );
+      return tokens;
     } catch {
       throw new UnauthorizedException('Token 已过期，请重新登录');
     }
@@ -272,10 +326,12 @@ export class AuthService {
   /**
    * 用户登出
    *
-   * @returns 返回登出成功消息
-   * @note 当前实现为同步操作，实际的 token 注销需要在客户端完成
+   * 携带 refreshToken 时删除对应会话(该令牌立即失效)
    */
-  logout(): { message: string } {
+  async logout(refreshToken?: string): Promise<{ message: string }> {
+    if (refreshToken) {
+      await this.sessionService.removeByRefreshToken(refreshToken);
+    }
     return { message: '登出成功' };
   }
 
@@ -296,7 +352,7 @@ export class AuthService {
         roles: {
           include: {
             role: {
-              select: { id: true, name: true, code: true },
+              select: { id: true, name: true, code: true, isSystem: true },
             },
           },
         },
@@ -541,7 +597,10 @@ export class AuthService {
    * @returns 返回包含 accessToken 和 refreshToken 的 Token 对
    * @description 生成访问令牌和刷新令牌，访问令牌短期有效，刷新令牌长期有效
    */
-  private generateTokens(user: { id: number; username: string }): TokenPair {
+  private generateTokens(user: {
+    id: number;
+    username: string;
+  }): TokenPair & { accessJti: string; refreshExpiresIn: number } {
     const accessExpiresIn = Number(
       this.configService.get<string>('JWT_EXPIRES_IN', '7200'),
     );
@@ -549,10 +608,12 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '604800'),
     );
 
-    const accessPayload: TokenPayload & { type: 'access' } = {
+    const accessJti = randomUUID(); // 会话标识:强制下线时加入黑名单
+    const accessPayload: TokenPayload & { type: 'access'; jti: string } = {
       id: user.id,
       username: user.username,
       type: 'access',
+      jti: accessJti,
     };
 
     const refreshPayload: TokenPayload & { type: string } = {
@@ -574,6 +635,8 @@ export class AuthService {
       refreshToken,
       expiresIn: accessExpiresIn,
       tokenType: 'Bearer',
+      accessJti,
+      refreshExpiresIn,
     };
   }
 

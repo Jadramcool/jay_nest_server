@@ -1,27 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsInt,
-  IsString,
-  IsBoolean,
-  IsEnum,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsBoolean, IsEnum } from 'class-validator';
 import { ConfigType } from '@prisma/client';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
-export class QuerySysConfigDto {
-  @ApiPropertyOptional({ description: '页码', example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: '每页数量', example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  pageSize?: number = 10;
-
+export class QuerySysConfigDto extends PaginationDto {
   @ApiPropertyOptional({ description: '配置名称' })
   @IsOptional()
   @IsString()

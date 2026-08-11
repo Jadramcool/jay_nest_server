@@ -5,17 +5,19 @@ import { APP_GUARD, DiscoveryModule } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { LoginGuardService } from './login-guard.service';
 import { JwtStrategy, JwtRefreshStrategy } from './strategies';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { RolesGuard } from '@/common/guards/roles.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 import { PermissionSeedService } from '@/common/services/permission-seed.service';
 import { PrismaModule } from '@/prisma/prisma.module';
+import { SessionModule } from '@/modules/session/session.module';
 import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 @Module({
   imports: [
     PrismaModule,
+    SessionModule,
     DiscoveryModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -35,16 +37,13 @@ import { getJwtSecret } from '@/common/utils/jwt-config.util';
   controllers: [AuthController],
   providers: [
     AuthService,
+    LoginGuardService,
     JwtStrategy,
     JwtRefreshStrategy,
     PermissionSeedService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
     },
     {
       provide: APP_GUARD,

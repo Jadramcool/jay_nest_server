@@ -17,6 +17,12 @@ import {
 } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
 
+interface UploadBody {
+  fileType?: string;
+  folder?: string;
+  maxSize?: number | string;
+}
+
 @ApiTags('文件上传')
 @ApiBearerAuth()
 @Controller('upload')
@@ -28,9 +34,9 @@ export class UploadController {
   @ApiOperation({ summary: '单文件上传' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(
+  uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: Record<string, unknown>,
+    @Body() body: UploadBody,
   ) {
     return this.uploadService.uploadFile(file, {
       fileType: String(body.fileType ?? ''),
@@ -44,9 +50,9 @@ export class UploadController {
   @ApiOperation({ summary: '批量文件上传' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FilesInterceptor('files', 10))
-  async uploadFiles(
+  uploadFiles(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: Record<string, unknown>,
+    @Body() body: UploadBody,
   ) {
     return this.uploadService.uploadFiles(files, {
       fileType: String(body.fileType ?? ''),

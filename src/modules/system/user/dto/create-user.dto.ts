@@ -5,6 +5,7 @@ import {
   IsInt,
   IsEnum,
   IsEmail,
+  IsArray,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -88,4 +89,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   roleType?: string;
+
+  @ApiPropertyOptional({ description: '角色ID列表', example: [1, 2] })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  roleIds?: number[];
 }

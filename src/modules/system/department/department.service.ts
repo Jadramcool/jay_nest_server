@@ -11,6 +11,7 @@ import {
   CreateDepartmentDto,
   UpdateDepartmentDto,
   QueryDepartmentDto,
+  QueryDepartmentMembersDto,
 } from './dto';
 
 export interface DepartmentTreeNode {
@@ -52,7 +53,7 @@ export class DepartmentService {
   }
 
   async findAll(queryDepartmentDto: QueryDepartmentDto) {
-    const { page = 1, pageSize = 10, includeDeleted } = queryDepartmentDto;
+    const { page = 1, pageSize = 20, includeDeleted } = queryDepartmentDto;
 
     const where: Prisma.DepartmentWhereInput = {
       ...buildQueryWhere(queryDepartmentDto, {
@@ -297,11 +298,8 @@ export class DepartmentService {
     };
   }
 
-  async getMembers(id: number, query?: Record<string, unknown>) {
-    const page = Number(query?.page) || 1;
-    const pageSize = Number(query?.pageSize) || 10;
-    const includeChildren =
-      query?.includeChildren === 'true' || query?.includeChildren === true;
+  async getMembers(id: number, query: QueryDepartmentMembersDto) {
+    const { page = 1, pageSize = 20, includeChildren = false, keyword } = query;
 
     // 收集目标部门 ID 列表
     let deptIds = [id];
@@ -314,7 +312,18 @@ export class DepartmentService {
       deptIds = [id, ...childrenIds];
     }
 
-    const where = { departmentId: { in: deptIds }, isDeleted: false };
+    const where: Prisma.UserWhereInput = {
+      departmentId: { in: deptIds },
+      isDeleted: false,
+      ...(keyword
+        ? {
+            OR: [
+              { username: { contains: keyword } },
+              { name: { contains: keyword } },
+            ],
+          }
+        : {}),
+    };
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,

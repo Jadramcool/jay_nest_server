@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
+import { SessionService } from '@/modules/session/session.service';
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy', () => {
@@ -18,6 +19,9 @@ describe('JwtStrategy', () => {
       {
         user: { findUnique },
       } as unknown as PrismaService,
+      {
+        isAccessRevoked: jest.fn(() => false),
+      } as unknown as SessionService,
     );
   });
 

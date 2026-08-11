@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { PublicService } from './public.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { SortDto } from './dto';
 
 describe('PublicService', () => {
   let service: PublicService;

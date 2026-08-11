@@ -41,8 +41,13 @@ export class OperationLogInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request: AuthenticatedRequest = context.switchToHttp().getRequest();
     const method = request.method.toUpperCase();
+    const logOptions = this.reflector.get<OperationLogOptions | undefined>(
+      OPERATION_LOG_KEY,
+      context.getHandler(),
+    );
 
-    if (method === 'OPTIONS' || method === 'GET') {
+    // OPTIONS 与 GET 默认跳过;但显式 @OperationLog 标注的 GET(如导出)需要记录
+    if (method === 'OPTIONS' || (method === 'GET' && !logOptions)) {
       return next.handle();
     }
 
@@ -51,11 +56,6 @@ export class OperationLogInterceptor implements NestInterceptor {
     if (EXCLUDE_PATHS.some((p) => path.startsWith(p))) {
       return next.handle();
     }
-
-    const logOptions = this.reflector.get<OperationLogOptions | undefined>(
-      OPERATION_LOG_KEY,
-      context.getHandler(),
-    );
 
     const startTime = Date.now();
 

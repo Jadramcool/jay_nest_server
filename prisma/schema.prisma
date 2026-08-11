@@ -61,6 +61,7 @@ model User {
   noticesAuthored Notice[]       @relation("NoticeAuthor") // 发布的通知
   operationLogs   OperationLog[] // 操作日志
   Todo            Todo[] // 待办事项
+  sessions        UserSession[] // 登录会话
   department      Department?    @relation("UserDepartment", fields: [departmentId], references: [id]) // 所属部门
   userNotice      UserNotice[] // 用户通知关联
   roles           UserRole[] // 用户角色关联
@@ -133,6 +134,7 @@ model Role {
   updatedTime DateTime  @updatedAt @map("updated_time")
   deletedTime DateTime? @map("deleted_time")
   isDeleted   Boolean   @default(false) @map("is_deleted")
+  isSystem    Boolean   @default(false) @map("is_system")
 
   departments RoleDepartment[] @relation("RoleDepartments")
   menus       RoleMenu[]
@@ -468,4 +470,90 @@ enum OperationStatus {
   SUCCESS // 成功
   FAILED // 失败
   PENDING // 待处理
+}
+
+/**
+ * 数据字典类型
+ * 定义一类字典(如:性别、公告类型),字典项见 DictItem
+ */
+model DictType {
+  id          Int        @id @default(autoincrement()) // 主键，自增ID
+  code        String     @unique @map("code") // 字典类型编码，如 sex
+  name        String // 字典类型名称，如 性别
+  status      Int        @default(1) // 状态 0-禁用 1-启用
+  remark      String? // 备注
+  isDeleted   Boolean    @default(false) // 软删除标记
+  createdTime DateTime   @default(now()) @map("created_time") // 创建时间
+  updatedTime DateTime   @updatedAt @map("updated_time") // 更新时间
+
+  items DictItem[]
+
+  @@index([status])
+  @@map("dict_type")
+}
+
+/**
+ * 数据字典项
+ * 具体字典值,通过 typeId 归属到 DictType
+ */
+model DictItem {
+  id          Int      @id @default(autoincrement()) // 主键，自增ID
+  typeId      Int      @map("type_id") // 所属字典类型ID
+  code        String @map("code") // 字典项编码(值),如 MALE
+  label       String // 显示文本,如 男
+  sortOrder   Int      @default(0) @map("sort_order") // 排序
+  status      Int      @default(1) // 状态 0-禁用 1-启用
+  isDeleted   Boolean  @default(false) // 软删除标记
+  createdTime DateTime @default(now()) @map("created_time") // 创建时间
+  updatedTime DateTime @updatedAt @map("updated_time") // 更新时间
+
+  type DictType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+
+  @@unique([typeId, code])
+  @@index([typeId, status])
+  @@map("dict_item")
+}
+
+/**
+ * 前端客户端事件(错误监控/访问埋点)
+ * 由前端 monitor 模块批量上报
+ */
+model ClientEvent {
+  id        Int      @id @default(autoincrement()) // 主键，自增ID
+  type      String // 事件类型: error | pageview
+  category  String? // 分类: JS_ERROR | UNHANDLED_REJECTION | VUE_ERROR | ROUTE_CHANGE
+  message   String? // 错误消息/页面标题
+  stack     String? @db.Text // 错误堆栈(截断后)
+  url       String? // 发生时的页面 URL
+  route     String? // 路由路径
+  userId    Int? // 上报用户
+  browser   String? // 浏览器标识(截断)
+  extra     Json? // 附加信息
+  createdTime DateTime @default(now()) @map("created_time") // 上报时间
+
+  @@index([type, createdTime])
+  @@index([category, createdTime])
+  @@map("client_event")
+}
+
+/**
+ * 用户登录会话
+ * 登录时创建,刷新令牌轮换时更新,登出/强制下线时删除
+ */
+model UserSession {
+  id           Int      @id @default(autoincrement()) // 主键，自增ID
+  userId       Int // 用户ID
+  refreshToken String   @unique // 当前有效刷新令牌(轮换时更新)
+  accessJti    String? // 当前访问令牌 jti(强制下线时加入黑名单)
+  ipAddress    String? // 登录 IP
+  userAgent    String? // 登录浏览器标识
+  expiresAt    DateTime // 会话过期时间(跟随 refreshToken 有效期)
+  lastActiveAt DateTime @default(now()) @map("last_active_at") // 最近活跃时间
+  createdTime  DateTime @default(now()) @map("created_time") // 创建时间
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_session")
 }

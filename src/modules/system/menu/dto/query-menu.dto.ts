@@ -8,20 +8,9 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MenuType } from '@prisma/client';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
-export class QueryMenuDto {
-  @ApiPropertyOptional({ description: '页码', example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: '每页数量', example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  pageSize?: number = 10;
-
+export class QueryMenuDto extends PaginationDto {
   @ApiPropertyOptional({ description: '菜单名称' })
   @IsOptional()
   @IsString()

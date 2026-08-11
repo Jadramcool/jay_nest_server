@@ -5,6 +5,7 @@ import { MenuModule } from './menu/menu.module';
 import { DepartmentModule } from './department/department.module';
 import { SysConfigModule } from './sys-config/sys-config.module';
 import { OperationLogModule } from './operation-log/operation-log.module';
+import { DictModule } from './dict/dict.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { OperationLogModule } from './operation-log/operation-log.module';
     DepartmentModule,
     SysConfigModule,
     OperationLogModule,
+    DictModule,
   ],
   exports: [
     UserModule,
@@ -22,6 +24,7 @@ import { OperationLogModule } from './operation-log/operation-log.module';
     DepartmentModule,
     SysConfigModule,
     OperationLogModule,
+    DictModule,
   ],
 })
 export class SystemModule {}

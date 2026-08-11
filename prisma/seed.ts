@@ -12,6 +12,7 @@ import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import {
   Department,
+  Dict,
   Menu,
   Notice,
   OperationLog,
@@ -263,6 +264,35 @@ const initNotices = async () => {
 };
 
 /**
+ * 初始化字典数据
+ *
+ * 按类型编码 upsert,幂等可重复执行(兼容已有数据库)
+ */
+const initDicts = async () => {
+  for (const seed of Dict.dictSeeds) {
+    const type = await prisma.dictType.upsert({
+      where: { code: seed.code },
+      update: { name: seed.name, remark: seed.remark ?? null },
+      create: { code: seed.code, name: seed.name, remark: seed.remark ?? null },
+    });
+
+    for (const item of seed.items) {
+      await prisma.dictItem.upsert({
+        where: { typeId_code: { typeId: type.id, code: item.code } },
+        update: { label: item.label, sortOrder: item.sortOrder ?? 0 },
+        create: {
+          typeId: type.id,
+          code: item.code,
+          label: item.label,
+          sortOrder: item.sortOrder ?? 0,
+        },
+      });
+    }
+  }
+  console.log('字典数据初始化完成');
+};
+
+/**
  * 主函数：按依赖顺序初始化所有数据
  *
  * 初始化顺序：
@@ -287,6 +317,7 @@ const main = async () => {
   await initAdminPermissions(); // 6. 管理员权限
   await initNotices(); // 7. 通知数据
   await initOperationLogs(); // 8. 操作日志
+  await initDicts(); // 9. 数据字典
 
   console.log('数据库数据初始化完成！');
 };

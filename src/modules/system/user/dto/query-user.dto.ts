@@ -8,20 +8,9 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Sex } from '@prisma/client';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
-export class QueryUserDto {
-  @ApiPropertyOptional({ description: '页码', example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: '每页数量', example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  pageSize?: number = 10;
-
+export class QueryUserDto extends PaginationDto {
   @ApiPropertyOptional({ description: '用户名' })
   @IsOptional()
   @IsString()
