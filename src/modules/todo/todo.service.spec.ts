@@ -80,7 +80,7 @@ describe('TodoService', () => {
 
       const result = await service.create(1, { title: '子任务', pid: 1 });
 
-      expect(prisma.todo.create).toHaveBeenCalledWith(
+      expect(prisma.todo.create.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           data: expect.objectContaining({ pid: 1, sortOrder: 4 }),
         }),
@@ -129,7 +129,7 @@ describe('TodoService', () => {
       const result = await service.remove(1, 1);
 
       expect(result.id).toBe(1);
-      expect(prisma.todo.deleteMany).toHaveBeenCalledWith({
+      expect(prisma.todo.deleteMany.mock.calls[0][0]).toEqual({
         where: { OR: [{ id: 1 }, { pid: 1 }] },
       });
     });

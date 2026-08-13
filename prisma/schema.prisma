@@ -260,7 +260,7 @@ model Todo {
   title       String // 待办标题
   content     String? // 待办内容
   sortOrder   Int?      @default(0) @map("sort_order") // 排序顺序
-  isDone      Boolean   @default(false) // 是否完成
+  isDone      Boolean   @default(false) @map("is_done") // 是否完成
   createdTime DateTime  @default(now()) @map("created_time") // 创建时间
   updatedTime DateTime? @updatedAt @map("updated_time") // 更新时间
   doneTime    DateTime? @map("done_time") // 完成时间
@@ -482,7 +482,7 @@ model DictType {
   name        String // 字典类型名称，如 性别
   status      Int        @default(1) // 状态 0-禁用 1-启用
   remark      String? // 备注
-  isDeleted   Boolean    @default(false) // 软删除标记
+  isDeleted   Boolean    @default(false) @map("is_deleted") // 软删除标记
   createdTime DateTime   @default(now()) @map("created_time") // 创建时间
   updatedTime DateTime   @updatedAt @map("updated_time") // 更新时间
 
@@ -503,7 +503,7 @@ model DictItem {
   label       String // 显示文本,如 男
   sortOrder   Int      @default(0) @map("sort_order") // 排序
   status      Int      @default(1) // 状态 0-禁用 1-启用
-  isDeleted   Boolean  @default(false) // 软删除标记
+  isDeleted   Boolean  @default(false) @map("is_deleted") // 软删除标记
   createdTime DateTime @default(now()) @map("created_time") // 创建时间
   updatedTime DateTime @updatedAt @map("updated_time") // 更新时间
 
@@ -526,7 +526,7 @@ model ClientEvent {
   stack     String? @db.Text // 错误堆栈(截断后)
   url       String? // 发生时的页面 URL
   route     String? // 路由路径
-  userId    Int? // 上报用户
+  userId    Int? @map("user_id") // 上报用户
   browser   String? // 浏览器标识(截断)
   extra     Json? // 附加信息
   createdTime DateTime @default(now()) @map("created_time") // 上报时间
@@ -542,12 +542,12 @@ model ClientEvent {
  */
 model UserSession {
   id           Int      @id @default(autoincrement()) // 主键，自增ID
-  userId       Int // 用户ID
-  refreshToken String   @unique // 当前有效刷新令牌(轮换时更新)
-  accessJti    String? // 当前访问令牌 jti(强制下线时加入黑名单)
-  ipAddress    String? // 登录 IP
-  userAgent    String? // 登录浏览器标识
-  expiresAt    DateTime // 会话过期时间(跟随 refreshToken 有效期)
+  userId       Int      @map("user_id") // 用户ID
+  refreshToken String   @unique @map("refresh_token") // 当前有效刷新令牌(轮换时更新)
+  accessJti    String? @map("access_jti") // 当前访问令牌 jti(强制下线时加入黑名单)
+  ipAddress    String? @map("ip_address") // 登录 IP
+  userAgent    String? @map("user_agent") // 登录浏览器标识
+  expiresAt    DateTime @map("expires_at") // 会话过期时间(跟随 refreshToken 有效期)
   lastActiveAt DateTime @default(now()) @map("last_active_at") // 最近活跃时间
   createdTime  DateTime @default(now()) @map("created_time") // 创建时间
 
