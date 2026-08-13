@@ -13,10 +13,15 @@ import {
   UpdateSysConfigDto,
   QuerySysConfigDto,
 } from './dto';
+import { ConfigResolverService } from './config-resolver.service';
+import { validateConfigValue } from './config-type.util';
 
 @Injectable()
 export class SysConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resolver: ConfigResolverService,
+  ) {}
 
   async create(createSysConfigDto: CreateSysConfigDto) {
     const { key } = createSysConfigDto;
@@ -29,8 +34,16 @@ export class SysConfigService {
       throw new BadRequestException('配置键已存在');
     }
 
+    // 按类型校验值
+    const type = createSysConfigDto.type ?? 'STRING';
+    const errors = validateConfigValue(type, createSysConfigDto.value ?? '');
+    if (errors.length > 0) {
+      throw new BadRequestException(`配置值校验失败: ${errors.join('; ')}`);
+    }
+
+    // isSystem 仅由种子数据写入,不允许通过接口创建
     const config = await this.prisma.sysConfig.create({
-      data: createSysConfigDto,
+      data: { ...createSysConfigDto, isSystem: false },
     });
 
     return this.formatConfig(config);
@@ -108,6 +121,14 @@ export class SysConfigService {
       throw new NotFoundException(`配置 ID ${id} 不存在`);
     }
 
+    // 系统配置保护:不允许修改键与类型
+    if (
+      config.isSystem &&
+      (updateSysConfigDto.key || updateSysConfigDto.type)
+    ) {
+      throw new BadRequestException('系统配置不允许修改键或类型');
+    }
+
     if (updateSysConfigDto.key) {
       const existingConfig = await this.prisma.sysConfig.findFirst({
         where: {
@@ -121,10 +142,19 @@ export class SysConfigService {
       }
     }
 
+    // 按类型校验值
+    const type = updateSysConfigDto.type ?? config.type;
+    const newValue = updateSysConfigDto.value ?? config.value ?? '';
+    const errors = validateConfigValue(type, newValue);
+    if (errors.length > 0) {
+      throw new BadRequestException(`配置值校验失败: ${errors.join('; ')}`);
+    }
+
     const updatedConfig = await this.prisma.sysConfig.update({
       where: { id },
       data: updateSysConfigDto,
     });
+    this.resolver.invalidate(updatedConfig.key);
 
     return this.formatConfig(updatedConfig);
   }
@@ -145,6 +175,7 @@ export class SysConfigService {
     await this.prisma.sysConfig.delete({
       where: { id },
     });
+    this.resolver.invalidate(config.key);
 
     return { id };
   }
@@ -164,9 +195,12 @@ export class SysConfigService {
     if (systemConfigs.length > 0) {
       throw new BadRequestException('包含系统配置，无法删除');
     }
-    await this.prisma.sysConfig.deleteMany({
+    const removed = await this.prisma.sysConfig.deleteMany({
       where: { id: { in: ids } },
     });
+    if (removed.count > 0) {
+      this.resolver.invalidate();
+    }
     return { ids };
   }
 
@@ -181,6 +215,7 @@ export class SysConfigService {
       where: { id },
       data: { isPublic: status === 1 },
     });
+    this.resolver.invalidate(config.key);
     return { id, status };
   }
 
@@ -198,7 +233,9 @@ export class SysConfigService {
       id: config.id,
       name: config.name,
       key: config.key,
-      value: config.value,
+      // 敏感配置不回显明文(编辑时留空表示不修改)
+      value:
+        config.type === 'PASSWORD' && config.value ? '******' : config.value,
       type: config.type,
       description: config.description,
       category: config.category,

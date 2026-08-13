@@ -15,6 +15,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public, RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { SysConfigService } from './sys-config.service';
+import { ConfigResolverService } from './config-resolver.service';
 import {
   CreateSysConfigDto,
   UpdateSysConfigDto,
@@ -25,7 +26,30 @@ import {
 @ApiBearerAuth()
 @Controller('system/config')
 export class SysConfigController {
-  constructor(private readonly sysConfigService: SysConfigService) {}
+  constructor(
+    private readonly sysConfigService: SysConfigService,
+    private readonly configResolver: ConfigResolverService,
+  ) {}
+
+  /** 类型化读取单个配置(带缓存,业务消费方与调试用) */
+  @Get('resolve/:key')
+  @RequirePermissions('system:config:list')
+  @ApiOperation({ summary: '类型化读取配置(带缓存)' })
+  async resolve(@Param('key') key: string) {
+    return this.configResolver.get(key);
+  }
+
+  /** 批量类型化读取 */
+  @Get('resolve')
+  @RequirePermissions('system:config:list')
+  @ApiOperation({ summary: '批量类型化读取配置' })
+  async resolveMany(@Query('keys') keys: string) {
+    const keyList = keys
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    return this.configResolver.getMany(keyList);
+  }
 
   @Get('list')
   @RequirePermissions('system:config:list')
