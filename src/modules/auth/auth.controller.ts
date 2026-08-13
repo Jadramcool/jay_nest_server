@@ -64,7 +64,11 @@ export class AuthController {
   @ApiOperation({ summary: '获取登录验证码' })
   @ApiResponse({ status: 200, description: '返回 captchaId 与 base64 图片' })
   getCaptcha() {
-    return this.loginGuardService.createCaptcha();
+    // 关闭时前端无需展示验证码(返回 enabled: false)
+    if (!this.loginGuardService.isCaptchaEnabled()) {
+      return { enabled: false };
+    }
+    return { enabled: true, ...this.loginGuardService.createCaptcha() };
   }
 
   /**
@@ -94,21 +98,26 @@ export class AuthController {
     // 限流检查(用户名 + IP)
     this.loginGuardService.assertNotLocked(loginDto.username, request.ip);
 
-    // 验证码校验(缺失/错误/过期 → 422,计入失败次数)
-    if (!loginDto.captchaId || !loginDto.captcha) {
-      throw new HttpException(
-        { code: 42201, message: '请输入验证码' },
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
-    }
-    try {
-      this.loginGuardService.consumeCaptcha(
-        loginDto.captchaId,
-        loginDto.captcha,
-      );
-    } catch (error) {
-      this.loginGuardService.recordFailure(loginDto.username, request.ip);
-      throw error;
+    // 验证码校验(仅启用时;缺失/错误/过期 → 422,计入失败次数)
+    if (this.loginGuardService.isCaptchaEnabled()) {
+      if (!loginDto.captchaId || !loginDto.captcha) {
+        throw new HttpException(
+          { code: 42201, message: '请输入验证码' },
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
+      try {
+        this.loginGuardService.consumeCaptcha(
+          loginDto.captchaId,
+          loginDto.captcha,
+        );
+      } catch (error) {
+        await this.loginGuardService.recordFailure(
+          loginDto.username,
+          request.ip,
+        );
+        throw error;
+      }
     }
 
     try {
@@ -125,7 +134,10 @@ export class AuthController {
     } catch (error) {
       // 密码/账号错误(401)计入失败次数
       if (error instanceof UnauthorizedException) {
-        this.loginGuardService.recordFailure(loginDto.username, request.ip);
+        await this.loginGuardService.recordFailure(
+          loginDto.username,
+          request.ip,
+        );
       }
       throw error;
     }

@@ -1,16 +1,48 @@
 import { HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { LoginGuardService } from './login-guard.service';
+import { ConfigResolverService } from '@/modules/system/sys-config/config-resolver.service';
 
 describe('LoginGuardService', () => {
   let service: LoginGuardService;
 
+  const configGet = jest.fn();
+  const resolverGet = jest.fn<Promise<number>, [key: string]>();
+
   beforeEach(() => {
-    service = new LoginGuardService();
+    configGet.mockReturnValue('true');
+    // 默认系统配置:最大失败 5 次,锁定 15 分钟
+    resolverGet.mockImplementation((key: string) =>
+      key === 'security.login.lockMinutes'
+        ? Promise.resolve(15)
+        : Promise.resolve(5),
+    );
+    service = new LoginGuardService(
+      { get: configGet } as unknown as ConfigService,
+      { get: resolverGet } as unknown as ConfigResolverService,
+    );
     jest.useFakeTimers();
   });
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  describe('验证码开关', () => {
+    it('should be enabled by default', () => {
+      configGet.mockReturnValue(undefined);
+      expect(service.isCaptchaEnabled()).toBe(true);
+    });
+
+    it('should be disabled when LOGIN_CAPTCHA_ENABLED=false', () => {
+      configGet.mockReturnValue('false');
+      expect(service.isCaptchaEnabled()).toBe(false);
+    });
+
+    it('should be enabled when LOGIN_CAPTCHA_ENABLED=true', () => {
+      configGet.mockReturnValue('true');
+      expect(service.isCaptchaEnabled()).toBe(true);
+    });
   });
 
   describe('验证码', () => {
@@ -50,16 +82,29 @@ describe('LoginGuardService', () => {
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
     });
 
-    it('should lock after 5 consecutive failures', () => {
-      for (let i = 0; i < 5; i++) service.recordFailure('admin', '127.0.0.1');
+    it('should lock after 5 consecutive failures (default)', async () => {
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
 
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow(
         '登录失败次数过多',
       );
     });
 
-    it('should throw 42901 code when locked', () => {
-      for (let i = 0; i < 5; i++) service.recordFailure('admin', '127.0.0.1');
+    it('should use configured max retries from sys config', async () => {
+      resolverGet.mockResolvedValue(3);
+      for (let i = 0; i < 3; i++)
+        await service.recordFailure('admin', '127.0.0.1');
+
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow(
+        '登录失败次数过多',
+      );
+      expect(resolverGet.mock.calls[0][0]).toBe('security.login.maxRetry');
+    });
+
+    it('should throw 42901 code when locked', async () => {
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
 
       try {
         service.assertNotLocked('admin', '127.0.0.1');
@@ -72,26 +117,44 @@ describe('LoginGuardService', () => {
       }
     });
 
-    it('should reset failures on success', () => {
-      for (let i = 0; i < 4; i++) service.recordFailure('admin', '127.0.0.1');
+    it('should reset failures on success', async () => {
+      for (let i = 0; i < 4; i++)
+        await service.recordFailure('admin', '127.0.0.1');
       service.resetFailures('admin', '127.0.0.1');
 
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
       // 重置后重新计数
-      service.recordFailure('admin', '127.0.0.1');
+      await service.recordFailure('admin', '127.0.0.1');
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
     });
 
-    it('should unlock after lock duration', () => {
-      for (let i = 0; i < 5; i++) service.recordFailure('admin', '127.0.0.1');
+    it('should unlock after configured lock duration', async () => {
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow();
 
       jest.advanceTimersByTime(16 * 60 * 1000);
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
     });
 
-    it('should isolate by username and ip', () => {
-      for (let i = 0; i < 5; i++) service.recordFailure('admin', '127.0.0.1');
+    it('should use configured lock minutes from sys config', async () => {
+      resolverGet.mockImplementation((key: string) =>
+        key === 'security.login.lockMinutes'
+          ? Promise.resolve(1)
+          : Promise.resolve(5),
+      );
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow();
+
+      // 锁定 1 分钟后解锁
+      jest.advanceTimersByTime(2 * 60 * 1000);
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
+    });
+
+    it('should isolate by username and ip', async () => {
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
 
       // 不同用户不受影响
       expect(() => service.assertNotLocked('other', '127.0.0.1')).not.toThrow();

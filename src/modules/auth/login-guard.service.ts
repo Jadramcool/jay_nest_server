@@ -1,11 +1,16 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as svgCaptcha from 'svg-captcha';
+import { ConfigResolverService } from '@/modules/system/sys-config/config-resolver.service';
 
 /**
  * 登录守卫:图形验证码 + 失败限流(内存实现,单实例部署有效)
  *
  * - 验证码:svg-captcha 生成,答案存内存 Map,5 分钟过期,一次性使用
- * - 限流:按 用户名+IP 计数,连续失败 5 次锁定 15 分钟(错误码 42901)
+ *   - 可用环境变量 LOGIN_CAPTCHA_ENABLED=false 关闭(本地/测试环境)
+ * - 限流:按 用户名+IP 计数,连续失败达到阈值后锁定(错误码 42901)
+ *   - 阈值与锁定分钟数读系统配置 `security.login.maxRetry` / `security.login.lockMinutes`
+ *   - 配置写入时 ConfigResolverService 自动失效缓存,变更即时生效
  *
  * 注意:多实例部署时需替换为 Redis 实现(当前内存方案仅单实例有效)
  */
@@ -21,13 +26,43 @@ interface RateLimitEntry {
 }
 
 const CAPTCHA_TTL = 5 * 60 * 1000; // 5 分钟
-const MAX_FAILURES = 5;
-const LOCK_DURATION = 15 * 60 * 1000; // 15 分钟
+const DEFAULT_MAX_FAILURES = 5;
+const DEFAULT_LOCK_MINUTES = 15;
 
 @Injectable()
 export class LoginGuardService {
   private readonly captchaStore = new Map<string, CaptchaEntry>();
   private readonly rateLimitStore = new Map<string, RateLimitEntry>();
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly configResolver: ConfigResolverService,
+  ) {}
+
+  /** 验证码是否启用(LOGIN_CAPTCHA_ENABLED,默认开启) */
+  isCaptchaEnabled(): boolean {
+    return (
+      this.configService.get<string>('LOGIN_CAPTCHA_ENABLED', 'true') !==
+      'false'
+    );
+  }
+
+  /** 连续失败阈值(读系统配置,默认 5 次) */
+  private async getMaxFailures(): Promise<number> {
+    return this.configResolver.get<number>(
+      'security.login.maxRetry',
+      DEFAULT_MAX_FAILURES,
+    );
+  }
+
+  /** 锁定时长毫秒(读系统配置,默认 15 分钟) */
+  private async getLockDuration(): Promise<number> {
+    const minutes = await this.configResolver.get<number>(
+      'security.login.lockMinutes',
+      DEFAULT_LOCK_MINUTES,
+    );
+    return minutes * 60 * 1000;
+  }
 
   // ═══════════ 图形验证码 ═══════════
 
@@ -105,12 +140,12 @@ export class LoginGuardService {
   }
 
   /** 记录一次登录失败,达到阈值则锁定 */
-  recordFailure(username: string, ip?: string): void {
+  async recordFailure(username: string, ip?: string): Promise<void> {
     const key = this.rateKey(username, ip);
     const entry = this.rateLimitStore.get(key) ?? { failures: 0 };
     entry.failures += 1;
-    if (entry.failures >= MAX_FAILURES) {
-      entry.lockedUntil = Date.now() + LOCK_DURATION;
+    if (entry.failures >= (await this.getMaxFailures())) {
+      entry.lockedUntil = Date.now() + (await this.getLockDuration());
       entry.failures = 0;
     }
     this.rateLimitStore.set(key, entry);

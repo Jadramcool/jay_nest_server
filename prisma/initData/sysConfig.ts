@@ -147,4 +147,31 @@ export const sysConfigs: SysConfigSeedData[] = [
     type: 'STRING',
     name: '默认语言',
   },
+
+  // ==================== 安全配置 ====================
+  // 登录防护相关参数(LoginGuardService 消费,修改后即时生效)
+
+  {
+    description: '同一用户名+IP 连续登录失败达到该次数后锁定',
+    category: 'security',
+    key: 'security.login.maxRetry',
+    value: '5',
+    isPublic: false,
+    isSystem: true,
+    sortOrder: 11,
+    type: 'NUMBER',
+    name: '登录失败最大次数',
+  },
+
+  {
+    description: '登录失败锁定分钟数',
+    category: 'security',
+    key: 'security.login.lockMinutes',
+    value: '15',
+    isPublic: false,
+    isSystem: true,
+    sortOrder: 12,
+    type: 'NUMBER',
+    name: '登录失败锁定时长',
+  },
 ];

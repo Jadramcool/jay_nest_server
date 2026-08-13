@@ -36,20 +36,22 @@ const prisma = new PrismaClient({ adapter });
 /**
  * 初始化系统配置数据
  *
- * 检查sys_config表是否为空，如果为空则插入初始系统配置数据
- * 系统配置包括站点名称、描述、版权信息等基础配置项
+ * 按 key 增量补充缺失配置(幂等,不改动已存在的配置)
+ * 站点名称、描述、版权信息、登录防护参数等基础配置项
  */
 const initConfigData = async () => {
-  // 检查表中是否有数据
-  const configCount = await prisma.sysConfig.count();
+  const existing = await prisma.sysConfig.findMany({ select: { key: true } });
+  const existingKeys = new Set(existing.map((config) => config.key));
+  const missing = SysConfig.sysConfigs.filter(
+    (config) => !existingKeys.has(config.key),
+  );
 
-  if (configCount === 0) {
-    // 如果没有数据，插入初始数据
+  if (missing.length > 0) {
     await prisma.sysConfig.createMany({
-      data: SysConfig.sysConfigs,
+      data: missing,
       skipDuplicates: true,
     });
-    console.log('系统配置数据初始化完成');
+    console.log(`系统配置数据初始化完成(新增 ${missing.length} 条)`);
   } else {
     console.log('系统配置数据已存在，跳过初始化');
   }
@@ -58,7 +60,7 @@ const initConfigData = async () => {
 /**
  * 初始化菜单数据
  *
- * 检查menu表是否为空，如果为空则插入初始菜单数据
+ * 空库时全量插入;已有数据时按 code 增量补充缺失菜单(幂等,不改动已有菜单)
  * 菜单数据定义了系统的导航结构和权限控制点
  */
 const initMenus = async () => {
@@ -73,7 +75,20 @@ const initMenus = async () => {
     });
     console.log('菜单数据初始化完成');
   } else {
-    console.log('菜单数据已存在，跳过初始化');
+    // 已有数据:仅补充缺失的菜单(如新增模块的入口),避免覆盖已有配置
+    let added = 0;
+    for (const menu of Menu.menus) {
+      const exists = await prisma.menu.findUnique({ where: { code: menu.code } });
+      if (!exists) {
+        // 增量插入时不指定 id,由数据库自增,避免与现有数据主键冲突
+        const { id: _id, ...menuData } = menu;
+        await prisma.menu.create({ data: menuData });
+        added += 1;
+      }
+    }
+    console.log(
+      added > 0 ? `菜单数据已存在，增量补充 ${added} 个新菜单` : '菜单数据已存在，无需补充',
+    );
   }
 };
 
