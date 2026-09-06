@@ -20,7 +20,7 @@ import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { QueryWithOps } from '@/common/decorators/query-with-ops.decorator';
 import { UserService } from './user.service';
-import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
+import { CreateUserDto, UpdateUserWithIdDto, QueryUserDto } from './dto';
 import {
   buildUserExportWorkbook,
   buildUserImportTemplateWorkbook,
@@ -56,7 +56,7 @@ export class UserController {
   @Put('update')
   @RequirePermissions('system:user:update')
   @ApiOperation({ summary: '更新用户' })
-  async update(@Body() updateUserDto: UpdateUserDto & { id: number }) {
+  async update(@Body() updateUserDto: UpdateUserWithIdDto) {
     const { id, ...data } = updateUserDto;
     return this.userService.update(id, data);
   }

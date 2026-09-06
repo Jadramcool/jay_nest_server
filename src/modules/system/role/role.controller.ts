@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { RoleService } from './role.service';
-import { CreateRoleDto, UpdateRoleDto, QueryRoleDto } from './dto';
+import { CreateRoleDto, UpdateRoleWithIdDto, QueryRoleDto } from './dto';
 
 @ApiTags('角色管理')
 @ApiBearerAuth()
@@ -54,7 +54,7 @@ export class RoleController {
   @Put('update')
   @RequirePermissions('system:role:update')
   @ApiOperation({ summary: '更新角色' })
-  async update(@Body() updateRoleDto: UpdateRoleDto & { id: number }) {
+  async update(@Body() updateRoleDto: UpdateRoleWithIdDto) {
     const { id, ...data } = updateRoleDto;
     return this.roleService.update(id, data);
   }

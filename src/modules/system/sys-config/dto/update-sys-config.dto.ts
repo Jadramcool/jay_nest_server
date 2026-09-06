@@ -45,11 +45,6 @@ export class UpdateSysConfigDto {
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiPropertyOptional({ description: '是否系统配置' })
-  @IsOptional()
-  @IsBoolean()
-  isSystem?: boolean;
-
   @ApiPropertyOptional({ description: '排序' })
   @IsOptional()
   @Type(() => Number)

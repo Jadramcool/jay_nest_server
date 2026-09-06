@@ -18,7 +18,7 @@ import { SysConfigService } from './sys-config.service';
 import { ConfigResolverService } from './config-resolver.service';
 import {
   CreateSysConfigDto,
-  UpdateSysConfigDto,
+  UpdateSysConfigWithIdDto,
   QuerySysConfigDto,
 } from './dto';
 
@@ -96,9 +96,7 @@ export class SysConfigController {
   @Put('update')
   @RequirePermissions('system:config:update')
   @ApiOperation({ summary: '更新系统配置' })
-  async update(
-    @Body() updateSysConfigDto: UpdateSysConfigDto & { id: number },
-  ) {
+  async update(@Body() updateSysConfigDto: UpdateSysConfigWithIdDto) {
     const { id, ...data } = updateSysConfigDto;
     return this.sysConfigService.update(id, data);
   }
