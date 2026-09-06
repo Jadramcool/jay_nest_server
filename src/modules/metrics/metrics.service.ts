@@ -27,11 +27,23 @@ export class MetricsService {
       route: event.route?.slice(0, 200) ?? null,
       userId,
       browser,
-      extra: event.extra ? (event.extra as Prisma.InputJsonValue) : undefined,
+      // extra 是任意 JSON,序列化后超限直接丢弃,防止灌库 DoS
+      extra: this.safeExtra(event.extra),
     }));
 
     const result = await this.prisma.clientEvent.createMany({ data: rows });
     return { received: result.count };
+  }
+
+  /** extra 序列化长度限制(4KB)，超限丢弃 */
+  private safeExtra(extra: unknown): Prisma.InputJsonValue | undefined {
+    if (extra === undefined || extra === null) return undefined;
+    try {
+      if (JSON.stringify(extra).length > 4096) return undefined;
+    } catch {
+      return undefined;
+    }
+    return extra;
   }
 
   async findAll(query: QueryClientEventDto) {

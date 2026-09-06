@@ -8,7 +8,9 @@ import { OperationLogService } from './modules/system/operation-log/operation-lo
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as helmet from 'helmet';
 import * as path from 'path';
+import { getAllowedOrigins } from './common/utils/cors.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -43,35 +45,41 @@ async function bootstrap() {
   // 全局异常过滤器
   app.useGlobalFilters(new PrismaExceptionFilter(), new HttpExceptionFilter());
 
-  // 启用 CORS
-  app.enableCors();
+  // 基础安全响应头(关闭 CSP 以免影响 Swagger UI;生产入口如需 CSP 请在网关配置)
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // 启用 CORS:通过 CORS_ORIGINS 配置来源白名单(逗号分隔),未配置时保持放开(本地开发)
+  app.enableCors({ origin: getAllowedOrigins(), credentials: true });
 
   // 设置全局前缀
   app.setGlobalPrefix('api');
 
   // Swagger API 文档配置
-  const config = new DocumentBuilder()
-    .setTitle('JDM Server API')
-    .setDescription('企业级管理系统 API 文档')
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
+  // Swagger API 文档配置(生产环境关闭,不暴露接口地图)
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('JDM Server API')
+      .setDescription('企业级管理系统 API 文档')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+          in: 'header',
+        },
+        'JWT-auth',
+      )
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api-docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
       },
-      'JWT-auth',
-    )
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api-docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+    });
+  }
 
   const port = Number(process.env.PORT) || 3000;
   await app.listen(port);

@@ -205,33 +205,37 @@ export class NoticeService {
       updateData.publishedAt = new Date();
     }
 
-    // 事务保护：重建 targets
-    if (targetsProvided) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.noticeTarget.deleteMany({ where: { noticeId: id } });
-        if (scopeTargets.length > 0) {
-          await tx.noticeTarget.createMany({
-            data: scopeTargets.map((t) => ({
-              noticeId: id,
-              targetType: t.targetType,
-              targetId: t.targetId,
-            })),
+    // 事务保护：targets 重建与主表更新原子提交，避免范围数据与公告主体不一致
+    const needsTargetRebuild = targetsProvided || scopeTypeChanged;
+    const updated = await (needsTargetRebuild
+      ? this.prisma.$transaction(async (tx) => {
+          await tx.noticeTarget.deleteMany({ where: { noticeId: id } });
+          if (targetsProvided && scopeTargets.length > 0) {
+            await tx.noticeTarget.createMany({
+              data: scopeTargets.map((t) => ({
+                noticeId: id,
+                targetType: t.targetType,
+                targetId: t.targetId,
+              })),
+            });
+          }
+          return tx.notice.update({
+            where: { id },
+            data: updateData,
+            include: {
+              author: { select: { id: true, name: true, username: true } },
+              targets: true,
+            },
           });
-        }
-      });
-    } else if (scopeTypeChanged) {
-      // scopeType 变了但未传新 targets → 清空旧 targets
-      await this.prisma.noticeTarget.deleteMany({ where: { noticeId: id } });
-    }
-
-    const updated = await this.prisma.notice.update({
-      where: { id },
-      data: updateData,
-      include: {
-        author: { select: { id: true, name: true, username: true } },
-        targets: true,
-      },
-    });
+        })
+      : this.prisma.notice.update({
+          where: { id },
+          data: updateData,
+          include: {
+            author: { select: { id: true, name: true, username: true } },
+            targets: true,
+          },
+        }));
 
     // 草稿 → 发布：创建 UserNotice
     if (isPublishingNow) {
@@ -535,6 +539,14 @@ export class NoticeService {
    * 标记公告为已读
    */
   async markAsRead(userId: number, noticeId: number) {
+    // 只允许对已发布且未删除的公告标记已读，防止对草稿/任意 id 制造脏数据
+    const notice = await this.prisma.notice.findUnique({
+      where: { id: noticeId },
+    });
+    if (!notice || notice.isDeleted || notice.status !== 1) {
+      throw new NotFoundException(`公告 ${noticeId} 不存在或未发布`);
+    }
+
     const record = await this.prisma.userNotice.findFirst({
       where: { userId, noticeId },
     });
@@ -637,9 +649,29 @@ export class NoticeService {
 
     if (userIds.length === 0) return;
 
-    // 过滤已有记录的用户
+    // 先恢复被移出范围后又重新纳入的软删记录(唯一约束占用,不恢复则用户收不到公告)
+    const softDeletedRecords = await this.prisma.userNotice.findMany({
+      where: { noticeId, isDeleted: true, userId: { in: userIds } },
+      select: { userId: true, readTime: true },
+    });
+    if (softDeletedRecords.length > 0) {
+      await this.prisma.userNotice.updateMany({
+        where: {
+          noticeId,
+          isDeleted: true,
+          userId: { in: softDeletedRecords.map((r) => r.userId) },
+        },
+        data: { isDeleted: false },
+      });
+    }
+    // 软删恢复且此前未读的用户,与全新分配用户一样需要推送
+    const restoredUserIds = softDeletedRecords
+      .filter((r) => !r.readTime)
+      .map((r) => r.userId);
+
+    // 过滤已有有效记录的用户(软删记录已在上面恢复)
     const existingRecords = await this.prisma.userNotice.findMany({
-      where: { noticeId },
+      where: { noticeId, isDeleted: false },
       select: { userId: true },
     });
     const existingUserIds = new Set(existingRecords.map((r) => r.userId));
@@ -661,9 +693,10 @@ export class NoticeService {
       (await this.prisma.notice.findUnique({
         where: { id: noticeId },
       }));
-    if (notice && newUserIds.length > 0) {
+    const pushUserIds = [...new Set([...newUserIds, ...restoredUserIds])];
+    if (notice && pushUserIds.length > 0) {
       const formatted = this.formatNotice(notice);
-      this.noticeGateway.sendToUsers(newUserIds, formatted);
+      this.noticeGateway.sendToUsers(pushUserIds, formatted);
     }
   }
 

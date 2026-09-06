@@ -190,6 +190,9 @@ describe('UserService', () => {
       prisma.userRole.count.mockResolvedValue(1);
       prisma.userRole.deleteMany.mockResolvedValue({ count: 1 });
       prisma.userRole.createMany.mockResolvedValue({ count: 1 });
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma),
+      );
 
       const result = await service.assignRoles(1, [2]);
 
@@ -206,6 +209,9 @@ describe('UserService', () => {
       prisma.userRole.findUnique.mockResolvedValue(null);
       prisma.userRole.deleteMany.mockResolvedValue({ count: 1 });
       prisma.userRole.createMany.mockResolvedValue({ count: 1 });
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma),
+      );
 
       const result = await service.assignRoles(1, [2]);
 
@@ -219,6 +225,9 @@ describe('UserService', () => {
       prisma.userRole.findUnique.mockResolvedValue(adminRoleRecord);
       prisma.userRole.deleteMany.mockResolvedValue({ count: 1 });
       prisma.userRole.createMany.mockResolvedValue({ count: 1 });
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma),
+      );
 
       const result = await service.assignRoles(1, [ADMIN_ROLE_ID, 2]);
 

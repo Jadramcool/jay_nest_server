@@ -8,7 +8,8 @@ import { ConfigResolverService } from '@/modules/system/sys-config/config-resolv
  *
  * - 验证码:svg-captcha 生成,答案存内存 Map,5 分钟过期,一次性使用
  *   - 可用环境变量 LOGIN_CAPTCHA_ENABLED=false 关闭(本地/测试环境)
- * - 限流:按 用户名+IP 计数,连续失败达到阈值后锁定(错误码 42901)
+ * - 限流:按 用户名+IP 计数,连续失败达到阈值后锁定(错误码 42901);
+ *   另有独立于 IP 的用户名全局计数(阈值 ×3),防多 IP 轮询爆破
  *   - 阈值与锁定分钟数读系统配置 `security.login.maxRetry` / `security.login.lockMinutes`
  *   - 配置写入时 ConfigResolverService 自动失效缓存,变更即时生效
  *
@@ -33,6 +34,8 @@ const DEFAULT_LOCK_MINUTES = 15;
 export class LoginGuardService {
   private readonly captchaStore = new Map<string, CaptchaEntry>();
   private readonly rateLimitStore = new Map<string, RateLimitEntry>();
+  /** 独立于 IP 的用户名维度失败计数(防多 IP 轮询爆破) */
+  private readonly usernameFailureStore = new Map<string, RateLimitEntry>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -123,6 +126,9 @@ export class LoginGuardService {
 
   // ═══════════ 登录失败限流 ═══════════
 
+  /** 全局用户名维度阈值倍数：多 IP 分布式爆破的总失败数达到单 IP 阈值 × 该倍数即锁定 */
+  private static readonly USERNAME_GLOBAL_MULTIPLIER = 3;
+
   private rateKey(username: string, ip?: string) {
     return `${username}:${ip ?? 'unknown'}`;
   }
@@ -137,6 +143,15 @@ export class LoginGuardService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+    // 独立于 IP 的全局计数：攻击者换 IP 轮询时,同一用户名仍会被锁定
+    const global = this.usernameFailureStore.get(username);
+    if (global?.lockedUntil && global.lockedUntil > Date.now()) {
+      const minutes = Math.ceil((global.lockedUntil - Date.now()) / 60000);
+      throw new HttpException(
+        { code: 42901, message: `登录失败次数过多，请 ${minutes} 分钟后再试` },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   /** 记录一次登录失败,达到阈值则锁定 */
@@ -144,15 +159,29 @@ export class LoginGuardService {
     const key = this.rateKey(username, ip);
     const entry = this.rateLimitStore.get(key) ?? { failures: 0 };
     entry.failures += 1;
-    if (entry.failures >= (await this.getMaxFailures())) {
+    const maxFailures = await this.getMaxFailures();
+    if (entry.failures >= maxFailures) {
       entry.lockedUntil = Date.now() + (await this.getLockDuration());
       entry.failures = 0;
     }
     this.rateLimitStore.set(key, entry);
+
+    // 全局用户名维度累计(阈值 = 单 IP 阈值 × 倍数)
+    const global = this.usernameFailureStore.get(username) ?? { failures: 0 };
+    global.failures += 1;
+    if (
+      global.failures >=
+      maxFailures * LoginGuardService.USERNAME_GLOBAL_MULTIPLIER
+    ) {
+      global.lockedUntil = Date.now() + (await this.getLockDuration());
+      global.failures = 0;
+    }
+    this.usernameFailureStore.set(username, global);
   }
 
   /** 登录成功清除限流状态 */
   resetFailures(username: string, ip?: string): void {
     this.rateLimitStore.delete(this.rateKey(username, ip));
+    this.usernameFailureStore.delete(username);
   }
 }

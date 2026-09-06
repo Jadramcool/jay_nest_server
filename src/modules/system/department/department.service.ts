@@ -40,7 +40,11 @@ export class DepartmentService {
     });
 
     if (existingDept) {
-      throw new BadRequestException('部门编码已存在');
+      throw new BadRequestException(
+        existingDept.isDeleted
+          ? '部门编码已被已删除的部门占用，请更换或联系管理员清理'
+          : '部门编码已存在',
+      );
     }
 
     const level = await this.calcLevel(parentId ?? null);
@@ -188,7 +192,11 @@ export class DepartmentService {
       });
 
       if (existingDept) {
-        throw new BadRequestException('部门编码已存在');
+        throw new BadRequestException(
+          existingDept.isDeleted
+            ? '部门编码已被已删除的部门占用，请更换或联系管理员清理'
+            : '部门编码已存在',
+        );
       }
     }
 

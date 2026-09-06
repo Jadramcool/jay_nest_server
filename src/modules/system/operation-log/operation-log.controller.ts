@@ -15,6 +15,8 @@ import { OperationType } from '@prisma/client';
 import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationLogService } from './operation-log.service';
 import { QueryOperationLogDto } from './dto';
+import { BatchIdsDto } from '@/common/dto';
+import { ClearExpiredDaysDto } from '@/modules/system/user/dto/user-actions.dto';
 
 @ApiTags('操作日志')
 @ApiBearerAuth()
@@ -59,8 +61,8 @@ export class OperationLogController {
     description: '批量删除操作日志',
   })
   @ApiOperation({ summary: '批量删除操作日志' })
-  async batchRemove(@Body('ids') ids: number[]) {
-    return this.operationLogService.batchRemove(ids);
+  async batchRemove(@Body() body: BatchIdsDto) {
+    return this.operationLogService.batchRemove(body.ids);
   }
 
   @Post('clear-expired')
@@ -71,7 +73,7 @@ export class OperationLogController {
     description: '清理过期操作日志',
   })
   @ApiOperation({ summary: '清理过期日志' })
-  async clearExpired(@Body('days') days: number = 90) {
-    return this.operationLogService.clearExpired(days);
+  async clearExpired(@Body() body: ClearExpiredDaysDto) {
+    return this.operationLogService.clearExpired(body.days);
   }
 }

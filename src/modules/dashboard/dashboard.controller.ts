@@ -31,7 +31,8 @@ export class DashboardController {
   async getTrends(
     @Query('days', new DefaultValuePipe(7), ParseIntPipe) days: number,
   ) {
-    return this.dashboardService.getTrends(days);
+    // 钳制范围：days 过大会触发逐日聚合查询风暴
+    return this.dashboardService.getTrends(Math.min(Math.max(days, 1), 90));
   }
 
   @Get('system-info')
@@ -46,6 +47,8 @@ export class DashboardController {
   async getActivities(
     @Query('limit', new DefaultValuePipe(8), ParseIntPipe) limit: number,
   ) {
-    return this.dashboardService.getActivities(limit);
+    return this.dashboardService.getActivities(
+      Math.min(Math.max(limit, 1), 50),
+    );
   }
 }

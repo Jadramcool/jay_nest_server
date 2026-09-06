@@ -64,11 +64,16 @@ export class DictService {
   }
 
   async createType(dto: CreateDictTypeDto) {
+    // 查重包含软删记录：唯一索引仍被其占用，放行会在 DB 层触发 P2002(409)
     const existing = await this.prisma.dictType.findFirst({
-      where: { code: dto.code, isDeleted: false },
+      where: { code: dto.code },
     });
     if (existing) {
-      throw new BadRequestException(`字典类型编码「${dto.code}」已存在`);
+      throw new BadRequestException(
+        existing.isDeleted
+          ? `字典类型编码「${dto.code}」已被已删除数据占用，请更换编码或联系管理员清理`
+          : `字典类型编码「${dto.code}」已存在`,
+      );
     }
     return this.prisma.dictType.create({
       data: {
@@ -90,10 +95,14 @@ export class DictService {
     }
     if (data.code) {
       const conflict = await this.prisma.dictType.findFirst({
-        where: { code: data.code, id: { not: id }, isDeleted: false },
+        where: { code: data.code, id: { not: id } },
       });
       if (conflict) {
-        throw new BadRequestException(`字典类型编码「${data.code}」已存在`);
+        throw new BadRequestException(
+          conflict.isDeleted
+            ? `字典类型编码「${data.code}」已被已删除数据占用，请更换编码或联系管理员清理`
+            : `字典类型编码「${data.code}」已存在`,
+        );
       }
     }
     return this.prisma.dictType.update({ where: { id }, data });
@@ -193,11 +202,13 @@ export class DictService {
       throw new BadRequestException(`字典类型 ID ${dto.typeId} 不存在`);
     }
     const existing = await this.prisma.dictItem.findFirst({
-      where: { typeId: dto.typeId, code: dto.code, isDeleted: false },
+      where: { typeId: dto.typeId, code: dto.code },
     });
     if (existing) {
       throw new BadRequestException(
-        `字典项编码「${dto.code}」在该类型下已存在`,
+        existing.isDeleted
+          ? `字典项编码「${dto.code}」在该类型下已被已删除数据占用，请更换编码或联系管理员清理`
+          : `字典项编码「${dto.code}」在该类型下已存在`,
       );
     }
     return this.prisma.dictItem.create({
@@ -225,12 +236,13 @@ export class DictService {
           typeId: item.typeId,
           code: data.code,
           id: { not: id },
-          isDeleted: false,
         },
       });
       if (conflict) {
         throw new BadRequestException(
-          `字典项编码「${data.code}」在该类型下已存在`,
+          conflict.isDeleted
+            ? `字典项编码「${data.code}」在该类型下已被已删除数据占用，请更换编码或联系管理员清理`
+            : `字典项编码「${data.code}」在该类型下已存在`,
         );
       }
     }

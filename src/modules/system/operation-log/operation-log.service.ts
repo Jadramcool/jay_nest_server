@@ -121,8 +121,10 @@ export class OperationLogService {
   }
 
   async clearExpired(days: number) {
+    // 纵深防御：即使 DTO 校验被绕过，也不允许负数/超大值清空全部审计日志
+    const safeDays = Math.min(Math.max(Math.trunc(days) || 90, 1), 365);
     const expireDate = new Date();
-    expireDate.setDate(expireDate.getDate() - days);
+    expireDate.setDate(expireDate.getDate() - safeDays);
 
     const result = await this.prisma.operationLog.deleteMany({
       where: {
@@ -130,7 +132,7 @@ export class OperationLogService {
       },
     });
 
-    return { deletedCount: result.count, days };
+    return { deletedCount: result.count, days: safeDays };
   }
 
   async getStats() {

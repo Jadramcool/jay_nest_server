@@ -21,7 +21,15 @@ import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { QueryWithOps } from '@/common/decorators/query-with-ops.decorator';
 import { UserService } from './user.service';
-import { CreateUserDto, UpdateUserWithIdDto, QueryUserDto } from './dto';
+import {
+  AssignUserRolesDto,
+  CreateUserDto,
+  QueryUserDto,
+  ResetUserPasswordDto,
+  UpdateUserStatusDto,
+  UpdateUserWithIdDto,
+} from './dto';
+import { BatchIdsDto } from '@/common/dto';
 import {
   buildUserExportWorkbook,
   buildUserImportTemplateWorkbook,
@@ -80,8 +88,8 @@ export class UserController {
   @RequirePermissions('system:user:delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除用户' })
-  async batchRemove(@Body('ids') ids: number[]) {
-    return this.userService.batchRemove(ids);
+  async batchRemove(@Body() body: BatchIdsDto) {
+    return this.userService.batchRemove(body.ids);
   }
 
   @Put('status/:id')
@@ -90,9 +98,9 @@ export class UserController {
   @ApiOperation({ summary: '启用/禁用用户' })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: number,
+    @Body() body: UpdateUserStatusDto,
   ) {
-    return this.userService.updateStatus(id, status);
+    return this.userService.updateStatus(id, body.status);
   }
 
   @Post('roles/:id')
@@ -105,9 +113,9 @@ export class UserController {
   @ApiOperation({ summary: '分配用户角色' })
   async assignRoles(
     @Param('id', ParseIntPipe) id: number,
-    @Body('roleIds') roleIds: number[],
+    @Body() body: AssignUserRolesDto,
   ) {
-    return this.userService.assignRoles(id, roleIds);
+    return this.userService.assignRoles(id, body.roleIds);
   }
 
   @Post('reset-password/:id')
@@ -120,9 +128,9 @@ export class UserController {
   @ApiOperation({ summary: '重置用户密码' })
   async resetPassword(
     @Param('id', ParseIntPipe) id: number,
-    @Body('newPassword') newPassword: string,
+    @Body() body: ResetUserPasswordDto,
   ) {
-    return this.userService.resetPassword(id, newPassword);
+    return this.userService.resetPassword(id, body.newPassword);
   }
 
   // ═══════════ Excel 导入导出 ═══════════

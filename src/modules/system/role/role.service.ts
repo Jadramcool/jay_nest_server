@@ -23,7 +23,11 @@ export class RoleService {
     });
 
     if (existingRole) {
-      throw new BadRequestException('角色编码或角色名称已存在');
+      throw new BadRequestException(
+        existingRole.isDeleted
+          ? '角色编码或角色名称已被已删除的角色占用，请更换或联系管理员清理'
+          : '角色编码或角色名称已存在',
+      );
     }
 
     const role = await this.prisma.role.create({
@@ -171,7 +175,11 @@ export class RoleService {
       });
 
       if (existingRole) {
-        throw new BadRequestException('角色编码或角色名称已存在');
+        throw new BadRequestException(
+          existingRole.isDeleted
+            ? '角色编码或角色名称已被已删除的角色占用，请更换或联系管理员清理'
+            : '角色编码或角色名称已存在',
+        );
       }
     }
 
@@ -225,18 +233,21 @@ export class RoleService {
       throw new BadRequestException('系统内置角色的菜单权限不可调整');
     }
 
-    await this.prisma.roleMenu.deleteMany({
-      where: { roleId },
-    });
-
-    if (menuIds.length > 0) {
-      await this.prisma.roleMenu.createMany({
-        data: menuIds.map((menuId) => ({
-          roleId,
-          menuId,
-        })),
+    // 先删后建必须同事务：createMany 失败(FK 等)时不能把角色已有权限清空
+    await this.prisma.$transaction(async (tx) => {
+      await tx.roleMenu.deleteMany({
+        where: { roleId },
       });
-    }
+
+      if (menuIds.length > 0) {
+        await tx.roleMenu.createMany({
+          data: menuIds.map((menuId) => ({
+            roleId,
+            menuId,
+          })),
+        });
+      }
+    });
 
     return { roleId, menuIds };
   }

@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '@/prisma/prisma.service';
+import { getAllowedOrigins } from '@/common/utils/cors.util';
 
 type NoticeSocket = Socket<any, any, any, { userId?: number }>;
 
@@ -17,7 +18,7 @@ const websocketNamespace = process.env.WEBSOCKET_NAMESPACE?.trim() || '/notice';
 @WebSocketGateway({
   namespace: websocketNamespace,
   cors: {
-    origin: true,
+    origin: getAllowedOrigins(),
     credentials: true,
   },
 })

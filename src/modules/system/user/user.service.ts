@@ -578,18 +578,21 @@ export class UserService {
       await this.assertSystemAdminRemains(adminRoleId, userId);
     }
 
-    await this.prisma.userRole.deleteMany({
-      where: { userId },
-    });
-
-    if (roleIds.length > 0) {
-      await this.prisma.userRole.createMany({
-        data: roleIds.map((roleId) => ({
-          userId,
-          roleId,
-        })),
+    // 先删后建必须同事务：createMany 失败(FK 等)时不能把用户已有角色清空
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userRole.deleteMany({
+        where: { userId },
       });
-    }
+
+      if (roleIds.length > 0) {
+        await tx.userRole.createMany({
+          data: roleIds.map((roleId) => ({
+            userId,
+            roleId,
+          })),
+        });
+      }
+    });
 
     return { userId, roleIds };
   }

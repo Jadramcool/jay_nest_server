@@ -15,7 +15,12 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RequirePermissions, OperationLog } from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { RoleService } from './role.service';
-import { CreateRoleDto, UpdateRoleWithIdDto, QueryRoleDto } from './dto';
+import {
+  CreateRoleDto,
+  UpdateRoleWithIdDto,
+  AssignRoleMenusDto,
+  QueryRoleDto,
+} from './dto';
 
 @ApiTags('角色管理')
 @ApiBearerAuth()
@@ -75,7 +80,7 @@ export class RoleController {
     description: '分配角色菜单权限',
   })
   @ApiOperation({ summary: '分配角色菜单权限' })
-  async assignMenus(@Body() body: { roleId: number; menuIds: number[] }) {
+  async assignMenus(@Body() body: AssignRoleMenusDto) {
     return this.roleService.assignMenus(body.roleId, body.menuIds);
   }
 }

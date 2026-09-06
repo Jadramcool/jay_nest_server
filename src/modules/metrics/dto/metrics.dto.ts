@@ -4,7 +4,10 @@ import {
   IsOptional,
   IsInt,
   IsArray,
+  ArrayMaxSize,
   MaxLength,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -53,6 +56,7 @@ export class ClientEventDto {
 export class ReportClientEventsDto {
   @ApiProperty({ description: '事件列表', type: [ClientEventDto] })
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ClientEventDto)
   events: ClientEventDto[];
@@ -63,12 +67,15 @@ export class QueryClientEventDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ description: '每页数量', default: 20 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(100)
   pageSize?: number = 20;
 
   @ApiPropertyOptional({ description: '事件类型', enum: ['error', 'pageview'] })
