@@ -67,6 +67,34 @@ export class SessionService {
     await this.prisma.userSession.deleteMany({ where: { refreshToken } });
   }
 
+  /**
+   * 登出:拉黑该会话的 access jti 后删除会话
+   *
+   * 与 removeByRefreshToken 的区别:当前 access token 立即失效,
+   * 而不是等它自然过期(默认 2 小时)
+   */
+  async revokeSessionByRefreshToken(refreshToken: string) {
+    const session = await this.prisma.userSession.findUnique({
+      where: { refreshToken },
+    });
+    if (!session) return;
+    if (session.accessJti) {
+      this.revokedJtis.set(
+        session.accessJti,
+        Date.now() + ACCESS_BLACKLIST_TTL,
+      );
+    }
+    await this.prisma.userSession.deleteMany({ where: { refreshToken } });
+    this.cleanupBlacklist();
+  }
+
+  /** 将单个 access jti 加入黑名单(如登出时未携带 refreshToken 的兜底) */
+  revokeAccessJti(jti?: string) {
+    if (!jti) return;
+    this.revokedJtis.set(jti, Date.now() + ACCESS_BLACKLIST_TTL);
+    this.cleanupBlacklist();
+  }
+
   /** 在线会话分页(含用户信息)。显式 select 安全字段，禁止返回 refreshToken/accessJti */
   async findAll(page: number, pageSize: number) {
     const now = new Date();
@@ -129,21 +157,30 @@ export class SessionService {
     return { kicked: 1 };
   }
 
-  /** 强制下线某用户全部会话 */
-  async kickByUser(userId: number) {
+  /** 强制下线某用户全部会话(excludeJti 用于保留当前会话,如改密场景) */
+  async kickByUser(
+    userId: number,
+    options?: { excludeJti?: string },
+  ): Promise<{ kicked: number }> {
     const sessions = await this.prisma.userSession.findMany({
       where: { userId },
       select: { id: true, accessJti: true },
     });
     for (const session of sessions) {
-      if (session.accessJti)
+      if (session.accessJti && session.accessJti !== options?.excludeJti) {
         this.revokedJtis.set(
           session.accessJti,
           Date.now() + ACCESS_BLACKLIST_TTL,
         );
+      }
     }
     const result = await this.prisma.userSession.deleteMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(options?.excludeJti
+          ? { accessJti: { not: options.excludeJti } }
+          : {}),
+      },
     });
     this.cleanupBlacklist();
     return { kicked: result.count };

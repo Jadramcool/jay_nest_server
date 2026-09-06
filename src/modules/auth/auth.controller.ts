@@ -192,8 +192,11 @@ export class AuthController {
   })
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
-  logout(@Body('refreshToken') refreshToken?: string) {
-    return this.authService.logout(refreshToken);
+  logout(
+    @CurrentUser() user: { jti?: string } | null,
+    @Body('refreshToken') refreshToken?: string,
+  ) {
+    return this.authService.logout(refreshToken, user?.jti);
   }
 
   /**
@@ -276,13 +279,14 @@ export class AuthController {
   })
   @ApiOperation({ summary: '修改密码' })
   async updatePassword(
-    @CurrentUser() user: { userId: number; username: string },
+    @CurrentUser() user: { userId: number; username: string; jti?: string },
     @Body() dto: UpdatePasswordDto,
   ): Promise<void> {
     await this.authService.updatePassword(
       user.userId,
       dto.oldPassword,
       dto.newPassword,
+      user.jti,
     );
   }
 }

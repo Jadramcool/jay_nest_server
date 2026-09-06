@@ -1,12 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { SessionService } from '@/modules/session/session.service';
+
+/** 持有角色分配权限的调用方 */
+const CALLER_WITH_ASSIGN_ROLE = {
+  permissions: ['system:user:assign-role'],
+};
 
 describe('UserService', () => {
   let service: UserService;
   let prisma: jest.Mocked<PrismaService>;
+  const kickByUser = jest.fn();
 
   const ADMIN_ROLE_ID = 1;
 
@@ -68,6 +76,12 @@ describe('UserService', () => {
             $transaction: jest.fn(),
           },
         },
+        {
+          provide: SessionService,
+          useValue: {
+            kickByUser: kickByUser.mockResolvedValue({ kicked: 0 }),
+          },
+        },
       ],
     }).compile();
 
@@ -89,11 +103,14 @@ describe('UserService', () => {
         async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma),
       );
 
-      const result = await service.create({
-        username: 'newuser',
-        password: '123456',
-        roleIds: [1, 2],
-      });
+      const result = await service.create(
+        {
+          username: 'newuser',
+          password: '123456',
+          roleIds: [1, 2],
+        },
+        CALLER_WITH_ASSIGN_ROLE,
+      );
 
       expect(result.id).toBe(2);
       expect(prisma.user.create.mock.calls).toHaveLength(1);
@@ -107,6 +124,33 @@ describe('UserService', () => {
           { userId: 2, roleId: 2 },
         ],
       });
+    });
+
+    it('should reject roleIds without assign-role permission', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          { username: 'newuser', password: '123456', roleIds: [1] },
+          { permissions: ['system:user:create'] },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.create.mock.calls).toHaveLength(0);
+    });
+
+    it('should allow create without roleIds for caller lacking assign-role', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(newUser);
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma),
+      );
+
+      await service.create(
+        { username: 'newuser', password: '123456' },
+        { permissions: ['system:user:create'] },
+      );
+
+      expect(prisma.user.create.mock.calls).toHaveLength(1);
     });
 
     it('should create user without role assignment when roleIds omitted', async () => {
@@ -190,9 +234,9 @@ describe('UserService', () => {
       prisma.userRole.findUnique.mockResolvedValue(adminRoleRecord);
       prisma.userRole.count.mockResolvedValue(0);
 
-      await expect(service.update(1, { roleIds: [2] })).rejects.toThrow(
-        '系统中必须至少保留一个系统管理员',
-      );
+      await expect(
+        service.update(1, { roleIds: [2] }, CALLER_WITH_ASSIGN_ROLE),
+      ).rejects.toThrow('系统中必须至少保留一个系统管理员');
 
       expect(prisma.$transaction.mock.calls).toHaveLength(0);
     });
@@ -217,7 +261,11 @@ describe('UserService', () => {
       prisma.userRole.count.mockResolvedValue(1);
       prisma.$transaction.mockResolvedValue(mockUser);
 
-      const result = await service.update(1, { roleIds: [2] });
+      const result = await service.update(
+        1,
+        { roleIds: [2] },
+        CALLER_WITH_ASSIGN_ROLE,
+      );
 
       expect(result).toEqual({
         id: 1,
@@ -235,10 +283,60 @@ describe('UserService', () => {
       prisma.userRole.findUnique.mockResolvedValue(null);
       prisma.$transaction.mockResolvedValue(mockUser);
 
-      const result = await service.update(1, { roleIds: [2] });
+      const result = await service.update(
+        1,
+        { roleIds: [2] },
+        CALLER_WITH_ASSIGN_ROLE,
+      );
 
       expect(result).toHaveProperty('id', 1);
       expect(prisma.userRole.count.mock.calls).toHaveLength(0);
+    });
+
+    it('should reject roleIds without assign-role permission', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(
+        service.update(
+          1,
+          { roleIds: [2] },
+          { permissions: ['system:user:update'] },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.$transaction.mock.calls).toHaveLength(0);
+    });
+
+    it('should reject empty roleIds (clearing roles) without assign-role permission', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(
+        service.update(
+          1,
+          { roleIds: [] },
+          { permissions: ['system:user:update'] },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should update password and kick all sessions of the user', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.update.mockResolvedValue(mockUser);
+
+      const result = await service.resetPassword(1, 'newpass123');
+
+      expect(result).toEqual({ id: 1 });
+      expect(kickByUser).toHaveBeenCalledWith(1);
+    });
+
+    it('should throw when user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.resetPassword(999, 'newpass123')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(kickByUser).not.toHaveBeenCalled();
     });
   });
 

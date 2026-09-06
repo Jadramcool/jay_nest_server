@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -10,10 +11,32 @@ import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { parseUserImport } from './excel.util';
+import { SessionService } from '@/modules/session/session.service';
+
+/** 调用方上下文(取自 JWT 策略附加到请求的 user 对象) */
+interface CallerContext {
+  permissions?: string[];
+}
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionService: SessionService,
+  ) {}
+
+  /**
+   * create/update 直接携带 roleIds 属于角色分配操作,
+   * 必须持有 assign-role 权限;否则持有 user:create/update 的
+   * 账号可绕过独立授权直接授予任意角色(含 ADMIN)
+   */
+  private assertCanAssignRoles(caller: CallerContext | undefined): void {
+    if (!caller?.permissions?.includes('system:user:assign-role')) {
+      throw new ForbiddenException(
+        '缺少角色分配权限，请在角色分配接口中操作，或联系管理员',
+      );
+    }
+  }
 
   private async findSystemAdminRoleId(): Promise<number | null> {
     const role = await this.prisma.role.findFirst({
@@ -50,7 +73,7 @@ export class UserService {
     }
   }
 
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto, caller?: CallerContext) {
     const { username, password, phone, email } = createUserDto;
 
     const existingUser = await this.prisma.user.findFirst({
@@ -70,6 +93,9 @@ export class UserService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { roleIds, ...userData } = createUserDto;
+    if (Array.isArray(roleIds) && roleIds.length > 0) {
+      this.assertCanAssignRoles(caller);
+    }
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -334,7 +360,11 @@ export class UserService {
     };
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    caller?: CallerContext,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -363,6 +393,10 @@ export class UserService {
     }
 
     const { roleIds, ...userData } = updateUserDto;
+    // update 携带 roleIds(含空数组=清空角色)都属于角色分配操作
+    if (roleIds !== undefined) {
+      this.assertCanAssignRoles(caller);
+    }
     const data: Prisma.UserUpdateInput = { ...userData };
 
     if (updateUserDto.password) {
@@ -575,6 +609,9 @@ export class UserService {
       where: { id },
       data: { password: hashedPassword },
     });
+
+    // 管理员重置密码后强制该用户全部会话下线,被盗会话立即止损
+    await this.sessionService.kickByUser(id);
 
     return { id };
   }

@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -49,16 +50,22 @@ export class UserController {
   @Post('create')
   @RequirePermissions('system:user:create')
   @ApiOperation({ summary: '创建用户' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
+  async create(
+    @Req() request: { user?: { permissions?: string[] } },
+    @Body() createUserDto: CreateUserDto,
+  ) {
+    return this.userService.create(createUserDto, request.user);
   }
 
   @Put('update')
   @RequirePermissions('system:user:update')
   @ApiOperation({ summary: '更新用户' })
-  async update(@Body() updateUserDto: UpdateUserWithIdDto) {
+  async update(
+    @Req() request: { user?: { permissions?: string[] } },
+    @Body() updateUserDto: UpdateUserWithIdDto,
+  ) {
     const { id, ...data } = updateUserDto;
-    return this.userService.update(id, data);
+    return this.userService.update(id, data, request.user);
   }
 
   @Put('delete/:id')

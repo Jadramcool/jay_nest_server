@@ -40,12 +40,12 @@ describe('system update 接口 DTO 元数据（防 ValidationPipe 绕过回归�
     ['UserController', UserController, UpdateUserWithIdDto],
     ['SysConfigController', SysConfigController, UpdateSysConfigWithIdDto],
   ])(
-    '%s 的 update 参数元数据必须是真实 DTO 类而不是 Object',
+    '%s 的 update 参数元数据必须包含真实 DTO 类而不是 Object',
     (_name, controller, dto) => {
       const types = getUpdateParamTypes(controller);
-      expect(types).toHaveLength(1);
-      expect(types[0]).toBe(dto);
-      expect(types[0]).not.toBe(Object);
+      // UserController.update 首参是 @Req()（元数据为 Object），DTO 只要求出现在参数列表中；
+      // 若交集类型回归，body 参数会退化为 Object，DTO 类将从列表中消失
+      expect(types).toContain(dto);
     },
   );
 

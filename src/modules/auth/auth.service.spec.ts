@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   UnauthorizedException,
@@ -83,6 +84,9 @@ describe('AuthService', () => {
             findValidSession: jest.fn(),
             rotateSession: jest.fn(),
             removeByRefreshToken: jest.fn(),
+            revokeSessionByRefreshToken: jest.fn(),
+            revokeAccessJti: jest.fn(),
+            kickByUser: jest.fn(),
           },
         },
         {
@@ -388,6 +392,19 @@ describe('AuthService', () => {
       expect(prisma.user.update.mock.calls).toHaveLength(1);
     });
 
+    it('should kick other sessions but keep the current one', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$10$newhashed');
+      prisma.user.update.mockResolvedValue(mockUser);
+
+      await service.updatePassword(1, 'oldpass', 'newpass', 'current-jti');
+
+      expect(sessionService.kickByUser).toHaveBeenCalledWith(1, {
+        excludeJti: 'current-jti',
+      });
+    });
+
     it('should throw BadRequestException when old password is wrong', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
@@ -395,6 +412,30 @@ describe('AuthService', () => {
       await expect(
         service.updatePassword(1, 'wrongpass', 'newpass'),
       ).rejects.toThrow(BadRequestException);
+      expect(sessionService.kickByUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke session and blacklist current access jti', async () => {
+      const result = await service.logout('rt-1', 'current-jti');
+
+      expect(result).toEqual({ message: '登出成功' });
+      expect(sessionService.revokeSessionByRefreshToken).toHaveBeenCalledWith(
+        'rt-1',
+      );
+      expect(sessionService.revokeAccessJti).toHaveBeenCalledWith(
+        'current-jti',
+      );
+    });
+
+    it('should blacklist current jti even without refreshToken', async () => {
+      await service.logout(undefined, 'current-jti');
+
+      expect(sessionService.revokeSessionByRefreshToken).not.toHaveBeenCalled();
+      expect(sessionService.revokeAccessJti).toHaveBeenCalledWith(
+        'current-jti',
+      );
     });
   });
 });

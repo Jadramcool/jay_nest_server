@@ -326,11 +326,16 @@ export class AuthService {
   /**
    * 用户登出
    *
-   * 携带 refreshToken 时删除对应会话(该令牌立即失效)
+   * 携带 refreshToken 时拉黑其 access jti 并删除对应会话;
+   * 无论是否携带 refreshToken,当前请求的 access jti 都立即进入黑名单
    */
-  async logout(refreshToken?: string): Promise<{ message: string }> {
+  async logout(
+    refreshToken?: string,
+    accessJti?: string,
+  ): Promise<{ message: string }> {
+    this.sessionService.revokeAccessJti(accessJti);
     if (refreshToken) {
-      await this.sessionService.removeByRefreshToken(refreshToken);
+      await this.sessionService.revokeSessionByRefreshToken(refreshToken);
     }
     return { message: '登出成功' };
   }
@@ -566,6 +571,7 @@ export class AuthService {
     userId: number,
     oldPassword: string,
     newPassword: string,
+    currentJti?: string,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -586,6 +592,12 @@ export class AuthService {
       where: { id: userId },
       data: { password: hashedPassword },
     });
+
+    // 改密后立即下线其他设备(被盗会话止损);当前会话保留避免自踢
+    await this.sessionService.kickByUser(
+      userId,
+      currentJti ? { excludeJti: currentJti } : undefined,
+    );
 
     return { message: '密码修改成功' };
   }

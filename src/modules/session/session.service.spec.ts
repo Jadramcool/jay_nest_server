@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/unbound-method */
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { SessionService } from './session.service';
@@ -130,6 +131,59 @@ describe('SessionService', () => {
       expect(result.kicked).toBe(2);
       expect(service.isAccessRevoked('jti-1')).toBe(true);
       expect(service.isAccessRevoked('jti-2')).toBe(true);
+    });
+
+    it('should keep the current session when excludeJti is given', async () => {
+      prisma.userSession.findMany.mockResolvedValue([
+        { id: 1, accessJti: 'current-jti' },
+        { id: 2, accessJti: 'other-jti' },
+      ]);
+      prisma.userSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.kickByUser(1, {
+        excludeJti: 'current-jti',
+      });
+
+      expect(result.kicked).toBe(1);
+      expect(service.isAccessRevoked('current-jti')).toBe(false);
+      expect(service.isAccessRevoked('other-jti')).toBe(true);
+      expect(prisma.userSession.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 1, accessJti: { not: 'current-jti' } },
+      });
+    });
+  });
+
+  describe('revokeSessionByRefreshToken', () => {
+    it('should blacklist access jti and delete the session', async () => {
+      prisma.userSession.findUnique.mockResolvedValue(mockSession);
+      prisma.userSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.revokeSessionByRefreshToken('rt-1');
+
+      expect(service.isAccessRevoked('jti-1')).toBe(true);
+      expect(prisma.userSession.deleteMany).toHaveBeenCalledWith({
+        where: { refreshToken: 'rt-1' },
+      });
+    });
+
+    it('should do nothing when session not found', async () => {
+      prisma.userSession.findUnique.mockResolvedValue(null);
+
+      await service.revokeSessionByRefreshToken('rt-missing');
+
+      expect(prisma.userSession.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('revokeAccessJti', () => {
+    it('should blacklist the given jti', () => {
+      service.revokeAccessJti('jti-x');
+      expect(service.isAccessRevoked('jti-x')).toBe(true);
+    });
+
+    it('should ignore empty jti', () => {
+      service.revokeAccessJti(undefined);
+      expect(service.isAccessRevoked('')).toBe(false);
     });
   });
 
