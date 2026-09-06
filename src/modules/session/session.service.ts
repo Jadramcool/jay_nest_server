@@ -67,7 +67,7 @@ export class SessionService {
     await this.prisma.userSession.deleteMany({ where: { refreshToken } });
   }
 
-  /** 在线会话分页(含用户信息) */
+  /** 在线会话分页(含用户信息)。显式 select 安全字段，禁止返回 refreshToken/accessJti */
   async findAll(page: number, pageSize: number) {
     const now = new Date();
     const where = { expiresAt: { gt: now } };
@@ -77,7 +77,14 @@ export class SessionService {
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { lastActiveAt: 'desc' },
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          ipAddress: true,
+          userAgent: true,
+          expiresAt: true,
+          lastActiveAt: true,
+          createdTime: true,
           user: {
             select: { id: true, username: true, name: true },
           },

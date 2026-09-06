@@ -21,7 +21,8 @@ export class UploadService {
     const fileType = options.fileType || 'all';
     const config = FILE_TYPE_CONFIGS[fileType] || FILE_TYPE_CONFIGS.all;
 
-    const maxSize = options.maxSize || config.maxSize;
+    // 客户端传入的 maxSize 只能收紧、不能放宽服务端配置
+    const maxSize = Math.min(options.maxSize ?? Infinity, config.maxSize);
     if (file.size > maxSize) {
       this.cleanupFile(file.path);
       throw new BadRequestException(
@@ -34,17 +35,30 @@ export class UploadService {
         ? options.allowedExtensions
         : config.allowedExtensions;
 
-    if (allowedExtensions && allowedExtensions.length > 0) {
-      const ext = path.extname(file.originalname).toLowerCase();
-      if (!allowedExtensions.includes(ext)) {
-        this.cleanupFile(file.path);
-        throw new BadRequestException(
-          `不支持的文件类型 ${ext}，允许的类型：${allowedExtensions.join(', ')}`,
-        );
-      }
+    // fail-closed：没有白名单（如未传 fileType 落到 all 配置）一律拒绝，
+    // 避免任意类型（.html/.svg/.exe）进入同源静态目录
+    if (!allowedExtensions || allowedExtensions.length === 0) {
+      this.cleanupFile(file.path);
+      throw new BadRequestException(
+        `请指定文件类型 fileType（${Object.keys(FILE_TYPE_CONFIGS)
+          .filter((key) => key !== 'all')
+          .join('/')}）`,
+      );
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      this.cleanupFile(file.path);
+      throw new BadRequestException(
+        `不支持的文件类型 ${ext}，允许的类型：${allowedExtensions.join(', ')}`,
+      );
     }
 
     const folder = options.folder || fileType;
+    if (!/^[a-zA-Z0-9_-]+$/.test(folder)) {
+      this.cleanupFile(file.path);
+      throw new BadRequestException('folder 仅允许字母、数字、下划线和连字符');
+    }
     const uploadDir = path.join(process.cwd(), 'uploads', folder);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });

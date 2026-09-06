@@ -189,7 +189,7 @@ model UserRole {
 model Notice {
   id          Int        @id @default(autoincrement()) // 主键，自增ID
   title       String // 通知标题
-  content     String? // 通知内容
+  content     String?    @db.Text // 通知内容(富文本 HTML,超过 VARCHAR(191) 容量故用 TEXT)
   type        NoticeType // 通知类型
   authorId    Int // 作者ID
   status      Int        @default(0) // 通知状态 0-草稿 1-发布
@@ -522,9 +522,9 @@ model ClientEvent {
   id        Int      @id @default(autoincrement()) // 主键，自增ID
   type      String // 事件类型: error | pageview
   category  String? // 分类: JS_ERROR | UNHANDLED_REJECTION | VUE_ERROR | ROUTE_CHANGE
-  message   String? // 错误消息/页面标题
+  message   String? @db.Text // 错误消息/页面标题(截断至 500,超过 VARCHAR(191) 容量故用 TEXT)
   stack     String? @db.Text // 错误堆栈(截断后)
-  url       String? // 发生时的页面 URL
+  url       String? @db.Text // 发生时的页面 URL
   route     String? // 路由路径
   userId    Int? @map("user_id") // 上报用户
   browser   String? // 浏览器标识(截断)

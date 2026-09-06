@@ -20,28 +20,43 @@ type PrismaDelegate = {
   }) => Promise<Record<string, unknown>>;
 };
 
-const TABLE_MODEL_MAP: Record<string, keyof PrismaService> = {
-  sysConfig: 'sysConfig',
-  user: 'user',
-  role: 'role',
-  department: 'department',
-  menu: 'menu',
-  navigation: 'navigation',
-  navigationGroup: 'navigationGroup',
-  notice: 'notice',
-  todo: 'todo',
-  operationLog: 'operationLog',
+/**
+ * 允许拖拽排序的表白名单（唯一事实来源）。
+ *
+ * 只收录确实拥有 sortOrder 字段、且排序属于其管理语义的表；
+ * permission 为操作该表排序所需的权限码（在 controller 校验），
+ * parentFields 为该表允许的层级字段（为空表示平表）。
+ * user/role/menu/notice/todo/operationLog 等表无排序语义或有独立权限模型，一律拒绝。
+ */
+export const TABLE_SORT_CONFIG: Record<
+  string,
+  { model: keyof PrismaService; permission: string; parentFields: string[] }
+> = {
+  sysConfig: {
+    model: 'sysConfig',
+    permission: 'system:config:update',
+    parentFields: [],
+  },
+  department: {
+    model: 'department',
+    permission: 'system:department:update',
+    parentFields: ['parentId'],
+  },
 };
+
+function getSortConfig(tableName: string) {
+  const config = TABLE_SORT_CONFIG[tableName];
+  if (!config) {
+    throw new BadRequestException(`不支持的表名: ${tableName}`);
+  }
+  return config;
+}
 
 function getPrismaDelegate(
   prisma: PrismaService,
-  tableName: string,
+  config: { model: keyof PrismaService },
 ): PrismaDelegate {
-  const key = TABLE_MODEL_MAP[tableName];
-  if (!key) {
-    throw new BadRequestException(`不支持的表名: ${tableName}`);
-  }
-  return prisma[key] as unknown as PrismaDelegate;
+  return prisma[config.model] as unknown as PrismaDelegate;
 }
 
 @Injectable()
@@ -49,7 +64,9 @@ export class PublicService {
   constructor(private readonly prisma: PrismaService) {}
 
   async sort(dto: SortDto) {
-    const model = getPrismaDelegate(this.prisma, dto.tableName);
+    const config = getSortConfig(dto.tableName);
+    this.assertParentField(config, dto.parentIdField);
+    const model = getPrismaDelegate(this.prisma, config);
 
     const currentRecord = await model.findUnique({ where: { id: dto.id } });
     if (!currentRecord) {
@@ -81,11 +98,11 @@ export class PublicService {
         break;
       }
       case 'before': {
-        if (!dto.targetId) {
+        if (dto.targetId === undefined) {
           throw new BadRequestException('before 位置需要 targetId');
         }
         const targetRecord = await model.findUnique({
-          where: { id: parseInt(dto.targetId, 10) },
+          where: { id: dto.targetId },
         });
         if (!targetRecord) {
           throw new BadRequestException(`目标记录 ID ${dto.targetId} 不存在`);
@@ -105,9 +122,9 @@ export class PublicService {
       }
       case 'after':
       default: {
-        if (dto.targetId) {
+        if (dto.targetId !== undefined) {
           const targetRecord = await model.findUnique({
-            where: { id: parseInt(dto.targetId, 10) },
+            where: { id: dto.targetId },
           });
           if (!targetRecord) {
             throw new BadRequestException(`目标记录 ID ${dto.targetId} 不存在`);
@@ -147,9 +164,18 @@ export class PublicService {
   }
 
   async resetSort(dto: ResetSortDto) {
-    const model = getPrismaDelegate(this.prisma, dto.tableName);
+    const config = getSortConfig(dto.tableName);
+    this.assertParentField(config, dto.parentIdField);
+    const model = getPrismaDelegate(this.prisma, config);
+
+    // 层级表必须限定父级范围，防止空条件全表重写；平表整表重置即其语义
     const where: Record<string, unknown> = {};
-    if (dto.parentIdField && dto.parentId !== undefined) {
+    if (config.parentFields.length > 0) {
+      if (!dto.parentIdField || dto.parentId === undefined) {
+        throw new BadRequestException(
+          '层级表重置排序必须指定 parentIdField 与 parentId',
+        );
+      }
       where[dto.parentIdField] = dto.parentId;
     }
 
@@ -168,5 +194,17 @@ export class PublicService {
     );
 
     return { resetCount: records.length };
+  }
+
+  /** 校验 parentIdField 是否在该表白名单内（parentIdField 为空时跳过） */
+  private assertParentField(
+    config: { parentFields: string[] },
+    parentIdField?: string,
+  ) {
+    if (parentIdField && !config.parentFields.includes(parentIdField)) {
+      throw new BadRequestException(
+        `不支持的父级字段: ${parentIdField}，允许的字段：${config.parentFields.join(', ') || '无'}`,
+      );
+    }
   }
 }

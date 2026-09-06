@@ -23,11 +23,7 @@ describe('PublicService', () => {
           useValue: {
             $transaction: jest.fn((cb: unknown) => cb),
             sysConfig: mockModel,
-            user: mockModel,
-            role: mockModel,
-            menu: mockModel,
-            navigation: mockModel,
-            navigationGroup: mockModel,
+            department: mockModel,
           },
         },
       ],
@@ -46,6 +42,13 @@ describe('PublicService', () => {
       await expect(
         service.sort({ tableName: 'invalid', id: 1 }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for table without sort semantics', async () => {
+      // user/role 等表已从白名单移除
+      await expect(service.sort({ tableName: 'user', id: 1 })).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when record not found', async () => {
@@ -96,7 +99,7 @@ describe('PublicService', () => {
         tableName: 'sysConfig',
         id: 3,
         position: 'before',
-        targetId: '1',
+        targetId: 1,
       });
 
       expect(result.sortOrder).toBe(0);
@@ -112,7 +115,7 @@ describe('PublicService', () => {
         tableName: 'sysConfig',
         id: 1,
         position: 'after',
-        targetId: '3',
+        targetId: 3,
       });
 
       expect(result.sortOrder).toBe(40);
@@ -128,7 +131,7 @@ describe('PublicService', () => {
         tableName: 'sysConfig',
         id: 2,
         position: 'after',
-        targetId: '1',
+        targetId: 1,
       });
 
       expect(result.sortOrder).toBe(20);
@@ -142,29 +145,46 @@ describe('PublicService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should handle parentIdField filtering', async () => {
+    it('should filter by parent field for hierarchical table', async () => {
       mockModel.findUnique.mockResolvedValue({ id: 1, sortOrder: 10 });
-      (
-        prisma.sysConfig as unknown as typeof mockModel
-      ).findFirst.mockResolvedValue({
-        id: 3,
-        sortOrder: 30,
-      });
+      mockModel.findFirst.mockResolvedValue({ id: 3, sortOrder: 30 });
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 1,
         position: 'last',
         parentIdField: 'parentId',
         parentId: 5,
       });
 
+      expect(mockModel.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { parentId: 5 },
+        }),
+      );
       expect(result.sortOrder).toBe(40);
+    });
+
+    it('should throw for parent field not in table whitelist', async () => {
+      await expect(
+        service.sort({
+          tableName: 'sysConfig',
+          id: 1,
+          parentIdField: 'parentId',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.sort({
+          tableName: 'department',
+          id: 1,
+          parentIdField: 'managerId',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('resetSort', () => {
-    it('should reset sort orders sequentially', async () => {
+    it('should reset sort orders sequentially for flat table', async () => {
       mockModel.findMany.mockResolvedValue([
         { id: 1, sortOrder: 100 },
         { id: 2, sortOrder: 50 },
@@ -196,6 +216,37 @@ describe('PublicService', () => {
       await expect(service.resetSort({ tableName: 'invalid' })).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('should require parent scope for hierarchical table', async () => {
+      // 层级表不带父级范围 → 防止全表重写
+      await expect(
+        service.resetSort({ tableName: 'department' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.resetSort({
+          tableName: 'department',
+          parentIdField: 'parentId',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reset only within parent scope for hierarchical table', async () => {
+      mockModel.findMany.mockResolvedValue([{ id: 7, sortOrder: 5 }]);
+      prisma.$transaction.mockImplementation(async (updates: unknown[]) =>
+        Promise.all(updates),
+      );
+
+      const result = await service.resetSort({
+        tableName: 'department',
+        parentIdField: 'parentId',
+        parentId: 5,
+      });
+
+      expect(mockModel.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { parentId: 5 } }),
+      );
+      expect(result).toEqual({ resetCount: 1 });
     });
   });
 });
