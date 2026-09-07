@@ -8,7 +8,7 @@ import { OperationLogService } from './modules/system/operation-log/operation-lo
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import * as helmet from 'helmet';
+import helmet from 'helmet';
 import * as path from 'path';
 import { getAllowedOrigins } from './common/utils/cors.util';
 
