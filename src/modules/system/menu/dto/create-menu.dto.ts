@@ -25,7 +25,11 @@ export class CreateMenuDto {
   @MaxLength(100)
   code: string;
 
-  @ApiPropertyOptional({ description: '权限标识', example: 'system:user:list' })
+  @ApiPropertyOptional({
+    description:
+      '权限标识（仅 BUTTON 类型使用；目录/菜单类型会被忽略并落库为 null）',
+    example: 'system:user:list',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -35,7 +39,10 @@ export class CreateMenuDto {
   @IsEnum(MenuType)
   type: MenuType;
 
-  @ApiPropertyOptional({ description: '父菜单ID' })
+  @ApiPropertyOptional({
+    description:
+      '父菜单ID。目录/菜单的父级只能是目录或空（根节点）；按钮必须挂在菜单下',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

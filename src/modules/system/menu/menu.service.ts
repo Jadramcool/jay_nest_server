@@ -8,6 +8,12 @@ import { Menu, Prisma, MenuType } from '@prisma/client';
 import { CreateMenuDto, UpdateMenuDto, QueryMenuDto } from './dto';
 import { buildQueryWhere } from '@/common/utils/query-where.util';
 import { paginate } from '@/common/utils/pagination.util';
+import {
+  MENU_TYPE_LABEL,
+  MENU_TYPE_RULES,
+  describeAllowedParents,
+  isPermissionOwner,
+} from './menu-type.rules';
 
 export interface MenuTreeNode {
   id: number;
@@ -46,7 +52,7 @@ export class MenuService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createMenuDto: CreateMenuDto) {
-    const { code } = createMenuDto;
+    const { code, type } = createMenuDto;
 
     const existingMenu = await this.prisma.menu.findUnique({
       where: { code },
@@ -56,11 +62,17 @@ export class MenuService {
       throw new BadRequestException('菜单编码已存在');
     }
 
+    await this.assertParentRule(type, createMenuDto.pid ?? null);
+    const permission = await this.resolvePermission(
+      type,
+      createMenuDto.permission,
+    );
+
     const menu = await this.prisma.menu.create({
       data: {
         name: createMenuDto.name,
         code: createMenuDto.code,
-        permission: createMenuDto.permission,
+        permission,
         type: createMenuDto.type,
         pid: createMenuDto.pid,
         path: createMenuDto.path,
@@ -169,10 +181,30 @@ export class MenuService {
     }
 
     const { extraData, ...rest } = updateMenuDto;
+
+    // 类型/父级可能只传其一，需按"变更后的完整状态"校验，避免出现非法中间态
+    const nextType = updateMenuDto.type ?? menu.type;
+    const nextPid =
+      updateMenuDto.pid !== undefined ? updateMenuDto.pid : menu.pid;
+
+    await this.assertParentRule(nextType, nextPid, id);
+    if (nextType !== menu.type) {
+      await this.assertChildrenCompatible(id, nextType);
+    }
+    const permission = await this.resolvePermission(
+      nextType,
+      updateMenuDto.permission !== undefined
+        ? updateMenuDto.permission
+        : menu.permission,
+      id,
+    );
+
     const updatedMenu = await this.prisma.menu.update({
       where: { id },
       data: {
         ...rest,
+        type: nextType,
+        permission,
         ...(extraData !== undefined && {
           extraData: extraData as Prisma.InputJsonValue,
         }),
@@ -232,6 +264,128 @@ export class MenuService {
       where: { id: { in: ids } },
     });
     return { ids };
+  }
+
+  /**
+   * 校验父子类型约束与循环引用
+   *
+   * 界面已按类型过滤可选父级，这里是最终防线：直接调接口同样造不出
+   * 「按钮挂目录下」「页面挂按钮下」「节点挂到自己子树里」这类脏结构。
+   *
+   * @param selfId 编辑场景传入自身 ID，用于防环；新建时省略
+   */
+  private async assertParentRule(
+    type: MenuType,
+    pid: number | null,
+    selfId?: number,
+  ): Promise<void> {
+    const rule = MENU_TYPE_RULES[type];
+
+    if (pid === null) {
+      if (!rule.allowRoot) {
+        throw new BadRequestException(
+          `${MENU_TYPE_LABEL[type]}必须挂在${describeAllowedParents(type)}下`,
+        );
+      }
+      return;
+    }
+
+    if (selfId !== undefined && pid === selfId) {
+      throw new BadRequestException('不能把节点挂到它自己下面');
+    }
+
+    let cursor = await this.findMenuBrief(pid);
+    if (!cursor) {
+      throw new BadRequestException(`父级菜单 ID ${pid} 不存在`);
+    }
+
+    if (!rule.parentTypes.includes(cursor.type)) {
+      throw new BadRequestException(
+        `${MENU_TYPE_LABEL[type]}的父级只能是${describeAllowedParents(type)}，` +
+          `当前选择的是${MENU_TYPE_LABEL[cursor.type]}「${cursor.name}」`,
+      );
+    }
+
+    if (selfId === undefined) return;
+
+    // 沿父链上溯：遇到自身说明目标父级位于自己的子树中，落库即成环
+    const visited = new Set<number>();
+    while (cursor) {
+      if (cursor.id === selfId) {
+        throw new BadRequestException('不能把节点移动到它自己的子节点下');
+      }
+      if (visited.has(cursor.id)) break; // 历史脏数据已存在环时兜底退出
+      visited.add(cursor.id);
+      cursor =
+        cursor.pid === null ? null : await this.findMenuBrief(cursor.pid);
+    }
+  }
+
+  /** 改类型后，已有子节点必须仍然满足各自的父级约束 */
+  private async assertChildrenCompatible(
+    id: number,
+    nextType: MenuType,
+  ): Promise<void> {
+    const children = await this.prisma.menu.findMany({
+      where: { pid: id },
+      select: { name: true, type: true },
+    });
+
+    const illegal = children.filter(
+      (child) => !MENU_TYPE_RULES[child.type].parentTypes.includes(nextType),
+    );
+
+    if (illegal.length > 0) {
+      const detail = illegal
+        .map((child) => `${MENU_TYPE_LABEL[child.type]}「${child.name}」`)
+        .join('、');
+      throw new BadRequestException(
+        `该节点下存在${detail}，不能改为${MENU_TYPE_LABEL[nextType]}`,
+      );
+    }
+  }
+
+  /**
+   * 解析落库的权限码（权限码只允许声明在按钮行）
+   *
+   * - 目录/菜单：一律落库为 null，历史遗留的冗余 permission 会在编辑时被顺带清理
+   * - 按钮：必填，且全局唯一（同一个码挂两个按钮会让"取消其一"变成无效操作）
+   */
+  private async resolvePermission(
+    type: MenuType,
+    permission?: string | null,
+    selfId?: number,
+  ): Promise<string | null> {
+    if (!isPermissionOwner(type)) return null;
+
+    const code = permission?.trim();
+    if (!code) {
+      throw new BadRequestException('按钮权限必须填写权限标识');
+    }
+
+    const owner = await this.prisma.menu.findFirst({
+      where: {
+        type: 'BUTTON',
+        permission: code,
+        ...(selfId === undefined ? {} : { id: { not: selfId } }),
+      },
+      select: { id: true, name: true },
+    });
+
+    if (owner) {
+      throw new BadRequestException(
+        `权限标识 ${code} 已被按钮「${owner.name}」占用`,
+      );
+    }
+
+    return code;
+  }
+
+  private findMenuBrief(id: number) {
+    return this.prisma.menu.findUnique({
+      where: { id },
+      select: { id: true, name: true, type: true, pid: true },
+    });
   }
 
   private formatMenu(menu: Menu): MenuTreeNode {

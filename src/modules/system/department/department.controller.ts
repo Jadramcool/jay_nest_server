@@ -29,63 +29,63 @@ export class DepartmentController {
   constructor(private readonly departmentService: DepartmentService) {}
 
   @Get('list')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取部门列表' })
   async findAll(@Query() queryDepartmentDto: QueryDepartmentDto) {
     return this.departmentService.findAll(queryDepartmentDto);
   }
 
   @Get('tree')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取部门树' })
   async findTree() {
     return this.departmentService.findTree();
   }
 
   @Get('search')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '搜索部门' })
   async search(@Query('keyword') keyword: string) {
     return this.departmentService.search(keyword);
   }
 
   @Get('stats')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取部门统计信息' })
   async getStats() {
     return this.departmentService.getStats();
   }
 
   @Get('stats/:id')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取指定部门统计信息' })
   async getStatsById(@Param('id', ParseIntPipe) id: number) {
     return this.departmentService.getStats(id);
   }
 
   @Get('detail/:id')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取部门详情' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.departmentService.findOne(id);
   }
 
   @Get('members')
-  @RequirePermissions('system:department:list')
+  @RequirePermissions({ code: 'system:department:list', name: '查询部门' })
   @ApiOperation({ summary: '获取部门成员列表' })
   async getMembers(@Query() query: QueryDepartmentMembersDto) {
     return this.departmentService.getMembers(query.departmentId, query);
   }
 
   @Post('create')
-  @RequirePermissions('system:department:create')
+  @RequirePermissions({ code: 'system:department:create', name: '新增部门' })
   @ApiOperation({ summary: '创建部门' })
   async create(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.departmentService.create(createDepartmentDto);
   }
 
   @Put('update/:id')
-  @RequirePermissions('system:department:update')
+  @RequirePermissions({ code: 'system:department:update', name: '编辑部门' })
   @ApiOperation({ summary: '更新部门' })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -95,7 +95,7 @@ export class DepartmentController {
   }
 
   @Delete('delete/:id')
-  @RequirePermissions('system:department:delete')
+  @RequirePermissions({ code: 'system:department:delete', name: '删除部门' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除部门' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -103,7 +103,7 @@ export class DepartmentController {
   }
 
   @Post('assign-user')
-  @RequirePermissions('system:department:assign-user')
+  @RequirePermissions({ code: 'system:department:assign-user', name: '分配成员' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -115,7 +115,7 @@ export class DepartmentController {
   }
 
   @Post('batch-assign-users')
-  @RequirePermissions('system:department:assign-user')
+  @RequirePermissions({ code: 'system:department:assign-user', name: '分配成员' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -132,7 +132,7 @@ export class DepartmentController {
   }
 
   @Delete('remove-user')
-  @RequirePermissions('system:department:assign-user')
+  @RequirePermissions({ code: 'system:department:assign-user', name: '分配成员' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '从部门移除用户' })
   async removeUser(@Body() body: { userId: number; departmentId: number }) {
@@ -140,7 +140,7 @@ export class DepartmentController {
   }
 
   @Post('assign-role')
-  @RequirePermissions('system:department:assign-role')
+  @RequirePermissions({ code: 'system:department:assign-role', name: '分配角色' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -152,7 +152,7 @@ export class DepartmentController {
   }
 
   @Delete('remove-role')
-  @RequirePermissions('system:department:assign-role')
+  @RequirePermissions({ code: 'system:department:assign-role', name: '分配角色' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '从部门移除角色' })
   async removeRole(@Body() body: { roleId: number; departmentId: number }) {
@@ -160,7 +160,7 @@ export class DepartmentController {
   }
 
   @Put('enable/:id')
-  @RequirePermissions('system:department:update')
+  @RequirePermissions({ code: 'system:department:update', name: '编辑部门' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '启用部门' })
   async enable(@Param('id', ParseIntPipe) id: number) {
@@ -168,7 +168,7 @@ export class DepartmentController {
   }
 
   @Put('disable/:id')
-  @RequirePermissions('system:department:update')
+  @RequirePermissions({ code: 'system:department:update', name: '编辑部门' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '停用部门' })
   async disable(@Param('id', ParseIntPipe) id: number) {

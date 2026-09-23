@@ -6,6 +6,7 @@ import { DepartmentModule } from './department/department.module';
 import { SysConfigModule } from './sys-config/sys-config.module';
 import { OperationLogModule } from './operation-log/operation-log.module';
 import { DictModule } from './dict/dict.module';
+import { PermissionModule } from './permission/permission.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DictModule } from './dict/dict.module';
     SysConfigModule,
     OperationLogModule,
     DictModule,
+    PermissionModule,
   ],
   exports: [
     UserModule,
@@ -25,6 +27,7 @@ import { DictModule } from './dict/dict.module';
     SysConfigModule,
     OperationLogModule,
     DictModule,
+    PermissionModule,
   ],
 })
 export class SystemModule {}

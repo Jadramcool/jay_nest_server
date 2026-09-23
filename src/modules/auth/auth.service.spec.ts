@@ -67,6 +67,18 @@ describe('AuthService', () => {
             role: {
               findFirst: jest.fn(),
             },
+            permission: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            rolePermission: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            menu: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            roleMenu: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
           },
         },
         {
@@ -361,7 +373,7 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         ...mockUser,
         department: { id: 1, name: '技术部' },
-        roles: [{ role: { id: 1, name: '管理员', code: 'admin' } }],
+        roles: [{ role: { id: 1, name: '管理员', code: 'admin', isSystem: true } }],
       });
 
       const result = await service.getUserInfo(1);

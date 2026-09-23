@@ -33,7 +33,7 @@ export class SysConfigController {
 
   /** 类型化读取单个配置(带缓存,业务消费方与调试用) */
   @Get('resolve/:key')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '类型化读取配置(带缓存)' })
   async resolve(@Param('key') key: string) {
     return this.configResolver.get(key);
@@ -41,7 +41,7 @@ export class SysConfigController {
 
   /** 批量类型化读取 */
   @Get('resolve')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '批量类型化读取配置' })
   async resolveMany(@Query('keys') keys: string) {
     const keyList = keys
@@ -52,28 +52,28 @@ export class SysConfigController {
   }
 
   @Get('list')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '获取系统配置列表' })
   async findAll(@Query() querySysConfigDto: QuerySysConfigDto) {
     return this.sysConfigService.findAll(querySysConfigDto);
   }
 
   @Get('detail/:id')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '获取系统配置详情' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.sysConfigService.findOne(id);
   }
 
   @Get('key/:key')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '根据键获取系统配置' })
   async findByKey(@Param('key') key: string) {
     return this.sysConfigService.findByKey(key);
   }
 
   @Get('category/:category')
-  @RequirePermissions('system:config:list')
+  @RequirePermissions({ code: 'system:config:list', name: '查询配置' })
   @ApiOperation({ summary: '根据分类获取系统配置' })
   async findByCategory(@Param('category') category: string) {
     return this.sysConfigService.findByCategory(category);
@@ -87,14 +87,14 @@ export class SysConfigController {
   }
 
   @Post('create')
-  @RequirePermissions('system:config:create')
+  @RequirePermissions({ code: 'system:config:create', name: '新增配置' })
   @ApiOperation({ summary: '创建系统配置' })
   async create(@Body() createSysConfigDto: CreateSysConfigDto) {
     return this.sysConfigService.create(createSysConfigDto);
   }
 
   @Put('update')
-  @RequirePermissions('system:config:update')
+  @RequirePermissions({ code: 'system:config:update', name: '编辑配置' })
   @ApiOperation({ summary: '更新系统配置' })
   async update(@Body() updateSysConfigDto: UpdateSysConfigWithIdDto) {
     const { id, ...data } = updateSysConfigDto;
@@ -102,7 +102,7 @@ export class SysConfigController {
   }
 
   @Delete('delete/:id')
-  @RequirePermissions('system:config:delete')
+  @RequirePermissions({ code: 'system:config:delete', name: '删除配置' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除系统配置' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -110,7 +110,7 @@ export class SysConfigController {
   }
 
   @Put('batchDelete')
-  @RequirePermissions('system:config:delete')
+  @RequirePermissions({ code: 'system:config:delete', name: '删除配置' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除系统配置' })
   async batchRemove(@Body('ids') ids: number[]) {
@@ -118,7 +118,7 @@ export class SysConfigController {
   }
 
   @Put('status/:id')
-  @RequirePermissions('system:config:update')
+  @RequirePermissions({ code: 'system:config:update', name: '编辑配置' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '启用/禁用系统配置' })
   async updateStatus(
@@ -129,7 +129,7 @@ export class SysConfigController {
   }
 
   @Post('validate-password')
-  @RequirePermissions('system:config:update')
+  @RequirePermissions({ code: 'system:config:update', name: '编辑配置' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({ operationType: OperationType.VIEW, description: '校验密码' })
   @ApiOperation({ summary: '校验密码' })

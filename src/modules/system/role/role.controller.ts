@@ -29,35 +29,35 @@ export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Get('list')
-  @RequirePermissions('system:role:list')
+  @RequirePermissions({ code: 'system:role:list', name: '查询角色' })
   @ApiOperation({ summary: '获取角色列表（分页）' })
   async findAll(@Query() queryRoleDto: QueryRoleDto) {
     return this.roleService.findAll(queryRoleDto);
   }
 
   @Get('all')
-  @RequirePermissions('system:role:list')
+  @RequirePermissions({ code: 'system:role:list', name: '查询角色' })
   @ApiOperation({ summary: '获取所有角色（不分页）' })
   async findAllSimple() {
     return this.roleService.findAllSimple();
   }
 
   @Get(':id')
-  @RequirePermissions('system:role:list')
+  @RequirePermissions({ code: 'system:role:list', name: '查询角色' })
   @ApiOperation({ summary: '获取角色详情（含菜单权限）' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.roleService.findOne(id);
   }
 
   @Post('create')
-  @RequirePermissions('system:role:create')
+  @RequirePermissions({ code: 'system:role:create', name: '新增角色' })
   @ApiOperation({ summary: '创建角色' })
   async create(@Body() createRoleDto: CreateRoleDto) {
     return this.roleService.create(createRoleDto);
   }
 
   @Put('update')
-  @RequirePermissions('system:role:update')
+  @RequirePermissions({ code: 'system:role:update', name: '编辑角色' })
   @ApiOperation({ summary: '更新角色' })
   async update(@Body() updateRoleDto: UpdateRoleWithIdDto) {
     const { id, ...data } = updateRoleDto;
@@ -65,7 +65,7 @@ export class RoleController {
   }
 
   @Delete('delete/:id')
-  @RequirePermissions('system:role:delete')
+  @RequirePermissions({ code: 'system:role:delete', name: '删除角色' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除角色' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -73,7 +73,7 @@ export class RoleController {
   }
 
   @Post('update/menu')
-  @RequirePermissions('system:role:assign-menu')
+  @RequirePermissions({ code: 'system:role:assign-menu', name: '分配权限' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -81,6 +81,10 @@ export class RoleController {
   })
   @ApiOperation({ summary: '分配角色菜单权限' })
   async assignMenus(@Body() body: AssignRoleMenusDto) {
-    return this.roleService.assignMenus(body.roleId, body.menuIds);
+    return this.roleService.assignMenus(
+      body.roleId,
+      body.menuIds,
+      body.permissionIds,
+    );
   }
 }

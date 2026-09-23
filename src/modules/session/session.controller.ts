@@ -37,21 +37,21 @@ export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
 
   @Get('list')
-  @RequirePermissions('system:session:list')
+  @RequirePermissions({ code: 'system:session:list', name: '查询会话' })
   @ApiOperation({ summary: '在线会话列表(分页)' })
   async findAll(@Query() query: QuerySessionDto) {
     return this.sessionService.findAll(query.page ?? 1, query.pageSize ?? 20);
   }
 
   @Get('stats')
-  @RequirePermissions('system:session:list')
+  @RequirePermissions({ code: 'system:session:list', name: '查询会话' })
   @ApiOperation({ summary: '在线会话统计' })
   async getStats() {
     return this.sessionService.getStats();
   }
 
   @Post('kick/:id')
-  @RequirePermissions('system:session:kick')
+  @RequirePermissions({ code: 'system:session:kick', name: '强制下线' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -63,7 +63,7 @@ export class SessionController {
   }
 
   @Post('kick-user/:userId')
-  @RequirePermissions('system:session:kick')
+  @RequirePermissions({ code: 'system:session:kick', name: '强制下线' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,

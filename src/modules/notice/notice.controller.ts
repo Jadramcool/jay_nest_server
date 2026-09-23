@@ -33,7 +33,7 @@ export class NoticeController {
   constructor(private readonly noticeService: NoticeService) {}
 
   @Get('list')
-  @RequirePermissions('notice:list')
+  @RequirePermissions({ code: 'notice:list', name: '查询通知' })
   @ApiOperation({ summary: '获取公告列表（分页）' })
   async findAll(@Query() queryNoticeDto: QueryNoticeDto) {
     return this.noticeService.findAll(queryNoticeDto);
@@ -59,7 +59,7 @@ export class NoticeController {
   }
 
   @Get(':id/receivers')
-  @RequirePermissions('notice:list')
+  @RequirePermissions({ code: 'notice:list', name: '查询通知' })
   @ApiOperation({ summary: '获取公告接收人列表' })
   async findReceivers(
     @Param('id', ParseIntPipe) id: number,
@@ -69,14 +69,14 @@ export class NoticeController {
   }
 
   @Get(':id')
-  @RequirePermissions('notice:list')
+  @RequirePermissions({ code: 'notice:list', name: '查询通知' })
   @ApiOperation({ summary: '获取公告详情' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.noticeService.findOne(id);
   }
 
   @Post('create')
-  @RequirePermissions('notice:create')
+  @RequirePermissions({ code: 'notice:create', name: '新增通知' })
   @OperationLog({
     operationType: OperationType.CREATE,
     description: '新增公告',
@@ -90,7 +90,7 @@ export class NoticeController {
   }
 
   @Put('update')
-  @RequirePermissions('notice:update')
+  @RequirePermissions({ code: 'notice:update', name: '编辑通知' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '编辑公告',
@@ -102,7 +102,7 @@ export class NoticeController {
   }
 
   @Put('status/:id')
-  @RequirePermissions('notice:publish')
+  @RequirePermissions({ code: 'notice:publish', name: '发布通知' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '发布/下刊公告',
@@ -114,7 +114,7 @@ export class NoticeController {
   }
 
   @Put('pin/:id')
-  @RequirePermissions('notice:update')
+  @RequirePermissions({ code: 'notice:update', name: '编辑通知' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '置顶/取消置顶公告',
@@ -126,7 +126,7 @@ export class NoticeController {
   }
 
   @Post('resend/:id')
-  @RequirePermissions('notice:update')
+  @RequirePermissions({ code: 'notice:update', name: '编辑通知' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '重新推送公告',
@@ -138,7 +138,7 @@ export class NoticeController {
   }
 
   @Put('delete/:id')
-  @RequirePermissions('notice:delete')
+  @RequirePermissions({ code: 'notice:delete', name: '删除通知' })
   @OperationLog({
     operationType: OperationType.DELETE,
     description: '删除公告',
@@ -150,7 +150,7 @@ export class NoticeController {
   }
 
   @Put('batchDelete')
-  @RequirePermissions('notice:delete')
+  @RequirePermissions({ code: 'notice:delete', name: '删除通知' })
   @OperationLog({
     operationType: OperationType.DELETE,
     description: '批量删除公告',

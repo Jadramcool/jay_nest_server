@@ -35,21 +35,21 @@ export class DictController {
   // ═══════════ 字典类型 ═══════════
 
   @Get('type/list')
-  @RequirePermissions('system:dict:list')
+  @RequirePermissions({ code: 'system:dict:list', name: '查询字典' })
   @ApiOperation({ summary: '获取字典类型列表(分页)' })
   async findTypes(@Query() query: QueryDictTypeDto) {
     return this.dictService.findTypes(query);
   }
 
   @Get('type/all')
-  @RequirePermissions('system:dict:list')
+  @RequirePermissions({ code: 'system:dict:list', name: '查询字典' })
   @ApiOperation({ summary: '获取全部字典类型(下拉)' })
   async findAllTypes() {
     return this.dictService.findAllTypes();
   }
 
   @Post('type/create')
-  @RequirePermissions('system:dict:create')
+  @RequirePermissions({ code: 'system:dict:create', name: '新增字典' })
   @OperationLog({
     operationType: OperationType.CREATE,
     description: '新增字典类型',
@@ -60,7 +60,7 @@ export class DictController {
   }
 
   @Put('type/update')
-  @RequirePermissions('system:dict:update')
+  @RequirePermissions({ code: 'system:dict:update', name: '编辑字典' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '更新字典类型',
@@ -71,7 +71,7 @@ export class DictController {
   }
 
   @Delete('type/delete/:id')
-  @RequirePermissions('system:dict:delete')
+  @RequirePermissions({ code: 'system:dict:delete', name: '删除字典' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.DELETE,
@@ -83,7 +83,7 @@ export class DictController {
   }
 
   @Put('type/status/:id')
-  @RequirePermissions('system:dict:update')
+  @RequirePermissions({ code: 'system:dict:update', name: '编辑字典' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '启用/禁用字典类型' })
   async updateTypeStatus(
@@ -96,21 +96,21 @@ export class DictController {
   // ═══════════ 字典项 ═══════════
 
   @Get('item/list')
-  @RequirePermissions('system:dict:list')
+  @RequirePermissions({ code: 'system:dict:list', name: '查询字典' })
   @ApiOperation({ summary: '获取字典项列表(分页)' })
   async findItems(@Query() query: QueryDictItemDto) {
     return this.dictService.findItems(query);
   }
 
   @Get('items/:code')
-  @RequirePermissions('system:dict:list')
+  @RequirePermissions({ code: 'system:dict:list', name: '查询字典' })
   @ApiOperation({ summary: '按类型编码获取启用字典项(下拉)' })
   async itemsByCode(@Param('code') code: string) {
     return this.dictService.itemsByCode(code);
   }
 
   @Post('item/create')
-  @RequirePermissions('system:dict:create')
+  @RequirePermissions({ code: 'system:dict:create', name: '新增字典' })
   @OperationLog({
     operationType: OperationType.CREATE,
     description: '新增字典项',
@@ -121,7 +121,7 @@ export class DictController {
   }
 
   @Put('item/update')
-  @RequirePermissions('system:dict:update')
+  @RequirePermissions({ code: 'system:dict:update', name: '编辑字典' })
   @OperationLog({
     operationType: OperationType.UPDATE,
     description: '更新字典项',
@@ -132,7 +132,7 @@ export class DictController {
   }
 
   @Delete('item/delete/:id')
-  @RequirePermissions('system:dict:delete')
+  @RequirePermissions({ code: 'system:dict:delete', name: '删除字典' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.DELETE,
@@ -144,7 +144,7 @@ export class DictController {
   }
 
   @Put('item/status/:id')
-  @RequirePermissions('system:dict:update')
+  @RequirePermissions({ code: 'system:dict:update', name: '编辑字典' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '启用/禁用字典项' })
   async updateItemStatus(

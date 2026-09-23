@@ -368,6 +368,35 @@ export class AuthService {
       throw new NotFoundException('用户不存在');
     }
 
+    // 功能权限码（供前端 v-auth 按钮级控制使用），来自菜单表 BUTTON 行
+    const isSystemAdmin = user.roles.some((ur) => ur.role.isSystem);
+    let permissions: string[];
+    if (isSystemAdmin) {
+      const buttonMenus = await this.prisma.menu.findMany({
+        where: { type: 'BUTTON', enable: true, permission: { not: null } },
+        select: { permission: true },
+      });
+      permissions = [
+        ...new Set(buttonMenus.map((menu) => menu.permission as string)),
+      ];
+    } else {
+      const roleIds = user.roles.map((ur) => ur.role.id);
+      const roleMenuRows = await this.prisma.roleMenu.findMany({
+        where: {
+          roleId: { in: roleIds },
+          menu: { type: 'BUTTON', enable: true, permission: { not: null } },
+        },
+        select: { menu: { select: { permission: true } } },
+      });
+      permissions = [
+        ...new Set(
+          roleMenuRows
+            .map((row) => row.menu.permission)
+            .filter((permission): permission is string => Boolean(permission)),
+        ),
+      ];
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -387,6 +416,7 @@ export class AuthService {
       departmentId: user.departmentId,
       departmentName: user.department?.name,
       roles: user.roles.map((ur) => ur.role),
+      permissions,
     };
   }
 

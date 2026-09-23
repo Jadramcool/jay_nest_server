@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsInt, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
 
 export class AssignRoleMenusDto {
   @ApiProperty({ description: '角色ID' })
@@ -13,4 +19,12 @@ export class AssignRoleMenusDto {
   @IsInt({ each: true })
   @Min(1, { each: true })
   menuIds: number[];
+
+  @ApiPropertyOptional({ description: '功能权限ID列表', type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  permissionIds?: number[];
 }

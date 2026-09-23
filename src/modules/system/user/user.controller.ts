@@ -42,21 +42,21 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('list')
-  @RequirePermissions('system:user:list')
+  @RequirePermissions({ code: 'system:user:list', name: '查询用户' })
   @ApiOperation({ summary: '获取用户列表' })
   async findAll(@QueryWithOps(QueryUserDto) queryUserDto: QueryUserDto) {
     return this.userService.findAll(queryUserDto);
   }
 
   @Get('detail/:id')
-  @RequirePermissions('system:user:list')
+  @RequirePermissions({ code: 'system:user:list', name: '查询用户' })
   @ApiOperation({ summary: '获取用户详情' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.userService.findOne(id);
   }
 
   @Post('create')
-  @RequirePermissions('system:user:create')
+  @RequirePermissions({ code: 'system:user:create', name: '新增用户' })
   @ApiOperation({ summary: '创建用户' })
   async create(
     @Req() request: { user?: { permissions?: string[] } },
@@ -66,7 +66,7 @@ export class UserController {
   }
 
   @Put('update')
-  @RequirePermissions('system:user:update')
+  @RequirePermissions({ code: 'system:user:update', name: '编辑用户' })
   @ApiOperation({ summary: '更新用户' })
   async update(
     @Req() request: { user?: { permissions?: string[] } },
@@ -77,7 +77,7 @@ export class UserController {
   }
 
   @Put('delete/:id')
-  @RequirePermissions('system:user:delete')
+  @RequirePermissions({ code: 'system:user:delete', name: '删除用户' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除用户' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -85,7 +85,7 @@ export class UserController {
   }
 
   @Put('batchDelete')
-  @RequirePermissions('system:user:delete')
+  @RequirePermissions({ code: 'system:user:delete', name: '删除用户' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除用户' })
   async batchRemove(@Body() body: BatchIdsDto) {
@@ -93,7 +93,7 @@ export class UserController {
   }
 
   @Put('status/:id')
-  @RequirePermissions('system:user:update')
+  @RequirePermissions({ code: 'system:user:update', name: '编辑用户' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '启用/禁用用户' })
   async updateStatus(
@@ -104,7 +104,7 @@ export class UserController {
   }
 
   @Post('roles/:id')
-  @RequirePermissions('system:user:assign-role')
+  @RequirePermissions({ code: 'system:user:assign-role', name: '分配角色' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -119,7 +119,7 @@ export class UserController {
   }
 
   @Post('reset-password/:id')
-  @RequirePermissions('system:user:reset-password')
+  @RequirePermissions({ code: 'system:user:reset-password', name: '重置密码' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.UPDATE,
@@ -136,7 +136,7 @@ export class UserController {
   // ═══════════ Excel 导入导出 ═══════════
 
   @Get('export')
-  @RequirePermissions('system:user:list')
+  @RequirePermissions({ code: 'system:user:list', name: '查询用户' })
   @OperationLog({
     operationType: OperationType.EXPORT,
     description: '导出用户列表',
@@ -158,7 +158,7 @@ export class UserController {
   }
 
   @Get('import/template')
-  @RequirePermissions('system:user:create')
+  @RequirePermissions({ code: 'system:user:create', name: '新增用户' })
   @OperationLog({
     operationType: OperationType.EXPORT,
     description: '下载用户导入模板',
@@ -176,7 +176,7 @@ export class UserController {
   }
 
   @Post('import')
-  @RequirePermissions('system:user:create')
+  @RequirePermissions({ code: 'system:user:create', name: '新增用户' })
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @OperationLog({

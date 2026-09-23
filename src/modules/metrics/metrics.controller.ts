@@ -34,14 +34,14 @@ export class MetricsController {
   }
 
   @Get('events')
-  @RequirePermissions('system:metrics:list')
+  @RequirePermissions({ code: 'system:metrics:list', name: '查询指标' })
   @ApiOperation({ summary: '查询前端事件(分页)' })
   async findAll(@Query() query: QueryClientEventDto) {
     return this.metricsService.findAll(query);
   }
 
   @Get('stats')
-  @RequirePermissions('system:metrics:list')
+  @RequirePermissions({ code: 'system:metrics:list', name: '查询指标' })
   @ApiOperation({ summary: '事件统计' })
   async getStats() {
     return this.metricsService.getStats();

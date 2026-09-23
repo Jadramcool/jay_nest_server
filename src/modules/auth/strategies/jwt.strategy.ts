@@ -50,17 +50,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
           where: {
             role: { isDeleted: false },
           },
-          include: {
+          select: {
             role: {
               select: {
+                id: true,
                 code: true,
                 isSystem: true,
-                menus: {
-                  where: { menu: { enable: true } },
-                  include: {
-                    menu: { select: { permission: true } },
-                  },
-                },
               },
             },
           },
@@ -80,29 +75,30 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     const isSystemAdmin = user.roles.some((ur) => ur.role.isSystem);
 
+    // 功能权限从菜单表 BUTTON 行的 permission 字段收集（按钮权限由菜单管理界面维护）
     let permissions: string[];
     if (isSystemAdmin) {
-      const menus = await this.prisma.menu.findMany({
-        where: { enable: true, permission: { not: null } },
+      const buttonMenus = await this.prisma.menu.findMany({
+        where: { type: 'BUTTON', enable: true, permission: { not: null } },
         select: { permission: true },
       });
       permissions = [
-        ...new Set(
-          menus
-            .map((menu) => menu.permission)
-            .filter((permission): permission is string => Boolean(permission)),
-        ),
+        ...new Set(buttonMenus.map((menu) => menu.permission as string)),
       ];
     } else {
+      const roleIds = user.roles.map((ur) => ur.role.id);
+      const roleMenuRows = await this.prisma.roleMenu.findMany({
+        where: {
+          roleId: { in: roleIds },
+          menu: { type: 'BUTTON', enable: true, permission: { not: null } },
+        },
+        select: { menu: { select: { permission: true } } },
+      });
       permissions = [
         ...new Set(
-          user.roles.flatMap((ur) =>
-            ur.role.menus
-              .map((rm) => rm.menu.permission)
-              .filter((permission): permission is string =>
-                Boolean(permission),
-              ),
-          ),
+          roleMenuRows
+            .map((row) => row.menu.permission)
+            .filter((permission): permission is string => Boolean(permission)),
         ),
       ];
     }

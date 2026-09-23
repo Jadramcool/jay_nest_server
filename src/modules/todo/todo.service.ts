@@ -8,11 +8,11 @@ export class TodoService {
 
   /** 当前用户的待办(平铺,按创建时间倒序;前端 arrayToTree 转树) */
   async findAll(userId: number, query: QueryTodoDto) {
-    const { onlyUndone, keyword } = query;
+    const { isDone, keyword } = query;
     return this.prisma.todo.findMany({
       where: {
         userId,
-        isDone: onlyUndone === 1 ? false : undefined,
+        ...(isDone === 0 || isDone === 1 ? { isDone: isDone === 1 } : {}),
         ...(keyword ? { title: { contains: keyword } } : {}),
       },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],

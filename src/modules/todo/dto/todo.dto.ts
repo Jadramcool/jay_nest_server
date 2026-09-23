@@ -62,11 +62,14 @@ export class UpdateTodoDto {
 }
 
 export class QueryTodoDto {
-  @ApiPropertyOptional({ description: '是否只查未完成', default: false })
+  @ApiPropertyOptional({
+    description: '完成状态筛选: 0-未完成 1-已完成, 不传查全部',
+    enum: [0, 1],
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  onlyUndone?: number;
+  isDone?: number;
 
   @ApiPropertyOptional({ description: '标题关键字' })
   @IsOptional()

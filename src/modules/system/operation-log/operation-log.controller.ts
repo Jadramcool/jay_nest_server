@@ -25,28 +25,28 @@ export class OperationLogController {
   constructor(private readonly operationLogService: OperationLogService) {}
 
   @Get('list')
-  @RequirePermissions('system:operation-log:list')
+  @RequirePermissions({ code: 'system:operation-log:list', name: '查询操作日志' })
   @ApiOperation({ summary: '获取操作日志列表' })
   async findAll(@Query() queryDto: QueryOperationLogDto) {
     return this.operationLogService.findAll(queryDto);
   }
 
   @Get('detail/:id')
-  @RequirePermissions('system:operation-log:list')
+  @RequirePermissions({ code: 'system:operation-log:list', name: '查询操作日志' })
   @ApiOperation({ summary: '获取操作日志详情' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.operationLogService.findOne(id);
   }
 
   @Get('stats')
-  @RequirePermissions('system:operation-log:list')
+  @RequirePermissions({ code: 'system:operation-log:list', name: '查询操作日志' })
   @ApiOperation({ summary: '获取操作日志统计' })
   async getStats() {
     return this.operationLogService.getStats();
   }
 
   @Delete('delete/:id')
-  @RequirePermissions('system:operation-log:delete')
+  @RequirePermissions({ code: 'system:operation-log:delete', name: '删除操作日志' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除操作日志' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -54,7 +54,7 @@ export class OperationLogController {
   }
 
   @Post('batch-delete')
-  @RequirePermissions('system:operation-log:delete')
+  @RequirePermissions({ code: 'system:operation-log:delete', name: '删除操作日志' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.DELETE,
@@ -66,7 +66,7 @@ export class OperationLogController {
   }
 
   @Post('clear-expired')
-  @RequirePermissions('system:operation-log:delete')
+  @RequirePermissions({ code: 'system:operation-log:delete', name: '删除操作日志' })
   @HttpCode(HttpStatus.OK)
   @OperationLog({
     operationType: OperationType.DELETE,

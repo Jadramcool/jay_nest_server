@@ -23,7 +23,7 @@ export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
   @Get('list')
-  @RequirePermissions('system:menu:list')
+  @RequirePermissions({ code: 'system:menu:list', name: '查询菜单' })
   @ApiOperation({ summary: '获取菜单列表' })
   async findAll(@Query() queryMenuDto: QueryMenuDto) {
     return this.menuService.findAll(queryMenuDto);
@@ -37,21 +37,21 @@ export class MenuController {
   }
 
   @Get('tree')
-  @RequirePermissions('system:menu:list')
+  @RequirePermissions({ code: 'system:menu:list', name: '查询菜单' })
   @ApiOperation({ summary: '获取菜单树' })
   async findTree() {
     return this.menuService.findTree();
   }
 
   @Post('create')
-  @RequirePermissions('system:menu:create')
+  @RequirePermissions({ code: 'system:menu:create', name: '新增菜单' })
   @ApiOperation({ summary: '创建菜单' })
   async create(@Body() createMenuDto: CreateMenuDto) {
     return this.menuService.create(createMenuDto);
   }
 
   @Put('update')
-  @RequirePermissions('system:menu:update')
+  @RequirePermissions({ code: 'system:menu:update', name: '编辑菜单' })
   @ApiOperation({ summary: '更新菜单' })
   async update(@Body() updateMenuDto: UpdateMenuDto) {
     const { id, ...data } = updateMenuDto;
@@ -59,7 +59,7 @@ export class MenuController {
   }
 
   @Delete('delete/:id')
-  @RequirePermissions('system:menu:delete')
+  @RequirePermissions({ code: 'system:menu:delete', name: '删除菜单' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '删除菜单' })
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -67,7 +67,7 @@ export class MenuController {
   }
 
   @Delete('batchDelete')
-  @RequirePermissions('system:menu:delete')
+  @RequirePermissions({ code: 'system:menu:delete', name: '删除菜单' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除菜单' })
   async batchRemove(@Body('ids') ids: number[]) {

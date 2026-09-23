@@ -123,6 +123,11 @@ export class RoleService {
             menu: true,
           },
         },
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
         users: {
           include: {
             user: {
@@ -144,6 +149,7 @@ export class RoleService {
       description: role.description,
       isSystem: role.isSystem,
       menus: role.menus.map((rm) => rm.menu),
+      permissionIds: role.permissions.map((rp) => rp.permissionId),
       users: role.users.map((ur) => ur.user),
       createdTime: role.createdTime,
       updatedTime: role.updatedTime,
@@ -220,7 +226,11 @@ export class RoleService {
     return { id };
   }
 
-  async assignMenus(roleId: number, menuIds: number[]) {
+  async assignMenus(
+    roleId: number,
+    menuIds: number[],
+    permissionIds?: number[],
+  ) {
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
     });
@@ -230,7 +240,7 @@ export class RoleService {
     }
 
     if (role.isSystem) {
-      throw new BadRequestException('系统内置角色的菜单权限不可调整');
+      throw new BadRequestException('系统内置角色的权限不可调整');
     }
 
     // 先删后建必须同事务：createMany 失败(FK 等)时不能把角色已有权限清空
@@ -247,8 +257,25 @@ export class RoleService {
           })),
         });
       }
+
+      // 功能权限与菜单同事务保存；未传时保持原有分配不变
+      if (permissionIds !== undefined) {
+        await tx.rolePermission.deleteMany({
+          where: { roleId },
+        });
+
+        if (permissionIds.length > 0) {
+          await tx.rolePermission.createMany({
+            data: permissionIds.map((permissionId) => ({
+              roleId,
+              permissionId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
     });
 
-    return { roleId, menuIds };
+    return { roleId, menuIds, ...(permissionIds !== undefined ? { permissionIds } : {}) };
   }
 }
