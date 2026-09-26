@@ -14,6 +14,16 @@ export class CreateRoleDto {
   @MaxLength(100)
   name: string;
 
+  @ApiPropertyOptional({
+    description: '所属端: admin | app | mp | common（缺省 admin）',
+    example: 'app',
+    default: 'admin',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  platform?: string;
+
   @ApiPropertyOptional({ description: '角色描述' })
   @IsOptional()
   @IsString()

@@ -13,6 +13,11 @@ export class QueryRoleDto extends PaginationDto {
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional({ description: '所属端: admin | app | mp | common' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
+
   @ApiPropertyOptional({ description: '是否包含已删除角色' })
   @IsOptional()
   @IsBoolean()

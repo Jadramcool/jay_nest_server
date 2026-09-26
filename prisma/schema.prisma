@@ -80,6 +80,7 @@ model Menu {
   code        String    @unique
   permission  String?
   type        MenuType
+  platform    String    @default("admin") @db.VarChar(16) // 端标识: admin | app | mp | common
   pid         Int?
   path        String?
   redirect    String?
@@ -111,6 +112,7 @@ model Menu {
   permissions Permission[]
 
   @@index([pid], map: "menu_pid_fkey")
+  @@index([platform])
   @@map("menu")
 }
 
@@ -183,12 +185,14 @@ model Role {
   deletedTime DateTime? @map("deleted_time")
   isDeleted   Boolean   @default(false) @map("is_deleted")
   isSystem    Boolean   @default(false) @map("is_system")
+  platform    String    @default("admin") @db.VarChar(16) // 端标识: admin | app | mp | common
 
   departments RoleDepartment[] @relation("RoleDepartments")
   menus       RoleMenu[]
   permissions RolePermission[]
   users       UserRole[]
 
+  @@index([platform])
   @@map("role")
 }
 
@@ -592,7 +596,8 @@ model ClientEvent {
 model UserSession {
   id           Int      @id @default(autoincrement()) // 主键，自增ID
   userId       Int      @map("user_id") // 用户ID
-  refreshToken String   @unique @map("refresh_token") // 当前有效刷新令牌(轮换时更新)
+  platform     String   @default("admin") // 登录端: admin | app | mp
+  refreshToken String   @unique @map("refresh_token") @db.VarChar(500) // 当前有效刷新令牌(轮换时更新);存 JWT 约 200+ 字符,VARCHAR(191) 会 P2000
   accessJti    String? @map("access_jti") // 当前访问令牌 jti(强制下线时加入黑名单)
   ipAddress    String? @map("ip_address") // 登录 IP
   userAgent    String? @map("user_agent") // 登录浏览器标识

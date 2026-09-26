@@ -3,12 +3,18 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
+import {
+  resolveClientPlatform,
+  visiblePlatforms,
+} from '@/common/constants/platform';
 import { getJwtSecret } from '@/common/utils/jwt-config.util';
 import { SessionService } from '@/modules/session/session.service';
 
 export interface JwtPayload {
   id: number;
   username: string;
+  /** 登录端：admin | app | mp */
+  platform?: string;
   type: 'access';
   jti?: string;
   iat?: number;
@@ -39,6 +45,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('登录状态已失效，请重新登录');
     }
 
+    const platform = resolveClientPlatform(payload.platform);
+    const platforms = visiblePlatforms(platform);
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.id },
       select: {
@@ -48,7 +57,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         status: true,
         roles: {
           where: {
-            role: { isDeleted: false },
+            role: { isDeleted: false, platform: { in: platforms } },
           },
           select: {
             role: {
@@ -76,10 +85,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const isSystemAdmin = user.roles.some((ur) => ur.role.isSystem);
 
     // 功能权限从菜单表 BUTTON 行的 permission 字段收集（按钮权限由菜单管理界面维护）
+    // 只收集本端(含共享端 common)的权限，这是端之间天然隔离的关键
     let permissions: string[];
     if (isSystemAdmin) {
       const buttonMenus = await this.prisma.menu.findMany({
-        where: { type: 'BUTTON', enable: true, permission: { not: null } },
+        where: {
+          type: 'BUTTON',
+          enable: true,
+          permission: { not: null },
+          platform: { in: platforms },
+        },
         select: { permission: true },
       });
       permissions = [
@@ -90,7 +105,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       const roleMenuRows = await this.prisma.roleMenu.findMany({
         where: {
           roleId: { in: roleIds },
-          menu: { type: 'BUTTON', enable: true, permission: { not: null } },
+          menu: {
+            type: 'BUTTON',
+            enable: true,
+            permission: { not: null },
+            platform: { in: platforms },
+          },
         },
         select: { menu: { select: { permission: true } } },
       });
@@ -107,6 +127,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       userId: user.id,
       username: user.username,
       jti: payload.jti,
+      platform,
       roles,
       permissions,
     };

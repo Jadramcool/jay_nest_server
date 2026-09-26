@@ -18,6 +18,8 @@ import { getJwtSecret } from '@/common/utils/jwt-config.util';
 export interface RefreshPayload {
   /** 用户ID */
   id: number;
+  /** 登录端 */
+  platform?: string;
   /** 令牌类型，固定为 'refresh' */
   type: 'refresh';
   /** 签发时间 */

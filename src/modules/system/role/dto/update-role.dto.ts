@@ -20,4 +20,10 @@ export class UpdateRoleDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: '所属端: admin | app | mp | common' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  platform?: string;
 }

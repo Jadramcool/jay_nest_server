@@ -63,6 +63,7 @@ describe('AuthService', () => {
             userRole: {
               findMany: jest.fn(),
               create: jest.fn(),
+              count: jest.fn().mockResolvedValue(1),
             },
             role: {
               findFirst: jest.fn(),
@@ -195,6 +196,7 @@ describe('AuthService', () => {
         jti: 'jti-1',
       });
       sessionService.createSession.mockResolvedValue({ id: 1 });
+      prisma.userRole.count.mockResolvedValue(1);
 
       const result = await service.login('testuser', 'password123');
 
@@ -213,6 +215,7 @@ describe('AuthService', () => {
       expect(jwtService.sign.mock.calls[1][0]).toEqual({
         id: 1,
         username: 'testuser',
+        platform: 'admin',
         type: 'refresh',
       });
       // 登录创建会话
@@ -227,6 +230,33 @@ describe('AuthService', () => {
       await expect(service.login('baduser', 'password')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('端隔离：签发携带登录端的 token', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      prisma.userRole.count.mockResolvedValue(1);
+      jwtService.sign.mockReturnValue('mock-token');
+      sessionService.createSession.mockResolvedValue({ id: 1 });
+
+      await service.login('testuser', 'password123', undefined, 'app');
+
+      expect(jwtService.sign.mock.calls[0][0]).toMatchObject({
+        platform: 'app',
+      });
+      expect(sessionService.createSession.mock.calls[0][0]).toMatchObject({
+        platform: 'app',
+      });
+    });
+
+    it('端隔离：账号在本端没有任何角色时拒绝登录', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      prisma.userRole.count.mockResolvedValue(0);
+
+      await expect(
+        service.login('testuser', 'password123', undefined, 'app'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -318,6 +348,7 @@ describe('AuthService', () => {
 
       sessionService.findValidSession.mockResolvedValue({ id: 1, userId: 1 });
       sessionService.rotateSession.mockResolvedValue({ count: 1 });
+      prisma.userRole.count.mockResolvedValue(1);
       jwtService.decode.mockReturnValue({ jti: 'new-jti' });
 
       const result = await service.refresh('valid-refresh-token');
@@ -373,7 +404,9 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         ...mockUser,
         department: { id: 1, name: '技术部' },
-        roles: [{ role: { id: 1, name: '管理员', code: 'admin', isSystem: true } }],
+        roles: [
+          { role: { id: 1, name: '管理员', code: 'admin', isSystem: true } },
+        ],
       });
 
       const result = await service.getUserInfo(1);

@@ -9,6 +9,8 @@ export const CurrentUser = createParamDecorator(
           userId: number;
           username: string;
           jti?: string;
+          platform?: string;
+          roles?: string[];
           permissions?: string[];
         }
       | undefined;

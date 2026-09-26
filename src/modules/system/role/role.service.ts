@@ -3,6 +3,12 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  PLATFORMS,
+  PLATFORM_LABELS,
+  type PlatformCode,
+  isPlatformCode,
+} from '@/common/constants/platform';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreateRoleDto, UpdateRoleDto, QueryRoleDto } from './dto';
@@ -13,8 +19,22 @@ import { buildQueryWhere } from '@/common/utils/query-where.util';
 export class RoleService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * 归一化端标识：非法值直接拒绝
+   */
+  private resolvePlatform(value?: string | null): PlatformCode {
+    if (value === undefined || value === null || value === '') {
+      return PLATFORMS.ADMIN;
+    }
+    if (!isPlatformCode(value)) {
+      throw new BadRequestException(`不支持的端: ${value}`);
+    }
+    return value;
+  }
+
   async create(createRoleDto: CreateRoleDto) {
     const { code, name } = createRoleDto;
+    const platform = this.resolvePlatform(createRoleDto.platform);
 
     const existingRole = await this.prisma.role.findFirst({
       where: {
@@ -31,7 +51,7 @@ export class RoleService {
     }
 
     const role = await this.prisma.role.create({
-      data: createRoleDto,
+      data: { ...createRoleDto, platform },
     });
 
     return {
@@ -39,6 +59,7 @@ export class RoleService {
       code: role.code,
       name: role.name,
       description: role.description,
+      platform: role.platform,
     };
   }
 
@@ -49,6 +70,7 @@ export class RoleService {
       ...buildQueryWhere(queryRoleDto, {
         code: 'contains',
         name: 'contains',
+        platform: 'eq',
       }),
     };
 
@@ -88,6 +110,7 @@ export class RoleService {
       name: role.name,
       description: role.description,
       isSystem: role.isSystem,
+      platform: role.platform,
       menuCount: role.menus.length,
       userCount: role.users.length,
       menus: role.menus.map((rm) => rm.menu),
@@ -189,9 +212,36 @@ export class RoleService {
       }
     }
 
+    const nextPlatform =
+      updateRoleDto.platform !== undefined
+        ? this.resolvePlatform(updateRoleDto.platform)
+        : undefined;
+
+    // 切换端时必须保证已分配菜单仍属于新端，否则会出现跨端授权
+    if (nextPlatform && nextPlatform !== role.platform) {
+      const foreignMenus = await this.prisma.roleMenu.findMany({
+        where: {
+          roleId: id,
+          menu: { platform: { notIn: [nextPlatform, PLATFORMS.COMMON] } },
+        },
+        select: { menu: { select: { name: true } } },
+      });
+
+      if (foreignMenus.length > 0) {
+        throw new BadRequestException(
+          `该角色已分配其他端的菜单（${foreignMenus
+            .map((item) => item.menu.name)
+            .join('、')}），请先清空权限再切换端`,
+        );
+      }
+    }
+
     const updatedRole = await this.prisma.role.update({
       where: { id },
-      data: updateRoleDto,
+      data: {
+        ...updateRoleDto,
+        ...(nextPlatform !== undefined && { platform: nextPlatform }),
+      },
     });
 
     return {
@@ -243,6 +293,27 @@ export class RoleService {
       throw new BadRequestException('系统内置角色的权限不可调整');
     }
 
+    // 端约束：角色只能分配到本端（或通用端）的菜单
+    if (menuIds.length > 0) {
+      const menus = await this.prisma.menu.findMany({
+        where: { id: { in: menuIds } },
+        select: { id: true, name: true, platform: true },
+      });
+      const foreignMenus = menus.filter(
+        (menu) =>
+          menu.platform !== role.platform && menu.platform !== PLATFORMS.COMMON,
+      );
+      if (foreignMenus.length > 0) {
+        throw new BadRequestException(
+          `角色「${role.name}」属于${
+            PLATFORM_LABELS[role.platform as PlatformCode] ?? role.platform
+          }，不能分配其他端的菜单：${foreignMenus
+            .map((menu) => menu.name)
+            .join('、')}`,
+        );
+      }
+    }
+
     // 先删后建必须同事务：createMany 失败(FK 等)时不能把角色已有权限清空
     await this.prisma.$transaction(async (tx) => {
       await tx.roleMenu.deleteMany({
@@ -276,6 +347,10 @@ export class RoleService {
       }
     });
 
-    return { roleId, menuIds, ...(permissionIds !== undefined ? { permissionIds } : {}) };
+    return {
+      roleId,
+      menuIds,
+      ...(permissionIds !== undefined ? { permissionIds } : {}),
+    };
   }
 }

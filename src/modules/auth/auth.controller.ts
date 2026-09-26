@@ -128,6 +128,7 @@ export class AuthController {
           ...request,
           userAgent: request.headers['user-agent'],
         },
+        loginDto.platform,
       );
       this.loginGuardService.resetFailures(loginDto.username, request.ip);
       return tokens;
@@ -208,8 +209,15 @@ export class AuthController {
    */
   @Get('user/info')
   @ApiOperation({ summary: '获取当前用户信息' })
-  async getUserInfo(@CurrentUser() user: { userId: number; username: string }) {
-    return this.authService.getUserInfo(user.userId);
+  async getUserInfo(
+    @CurrentUser()
+    user: {
+      userId: number;
+      username: string;
+      platform?: string;
+    },
+  ) {
+    return this.authService.getUserInfo(user.userId, user.platform);
   }
 
   /**
@@ -221,8 +229,15 @@ export class AuthController {
    */
   @Get('user/menu')
   @ApiOperation({ summary: '获取当前用户菜单' })
-  async getUserMenu(@CurrentUser() user: { userId: number; username: string }) {
-    return this.authService.getUserMenusFlat(user.userId);
+  async getUserMenu(
+    @CurrentUser()
+    user: {
+      userId: number;
+      username: string;
+      platform?: string;
+    },
+  ) {
+    return this.authService.getUserMenusFlat(user.userId, user.platform);
   }
 
   /**
