@@ -21,4 +21,13 @@ export class LoginDto {
   @IsString()
   @IsOptional()
   captchaId?: string;
+
+  @ApiProperty({
+    description: '登录端: admin | app | mp（缺省 admin）',
+    required: false,
+    example: 'app',
+  })
+  @IsString()
+  @IsOptional()
+  platform?: string;
 }

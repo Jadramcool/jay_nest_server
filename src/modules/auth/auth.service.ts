@@ -22,6 +22,13 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '@/prisma/prisma.service';
+import {
+  PLATFORMS,
+  type ClientPlatform,
+  type PlatformCode,
+  resolveClientPlatform,
+  visiblePlatforms,
+} from '@/common/constants/platform';
 import { MenuType, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { getJwtSecret } from '@/common/utils/jwt-config.util';
@@ -36,6 +43,8 @@ export interface TokenPayload {
   id: number;
   /** 用户名 */
   username: string;
+  /** 登录端：admin | app | mp */
+  platform: ClientPlatform;
 }
 
 /**
@@ -71,6 +80,8 @@ export interface UserInfo {
 export interface MenuFormat {
   id: number;
   name: string;
+  /** 端标识：admin | app | mp | common */
+  platform: string;
   path: string | null;
   component: string | null;
   redirect: string | null;
@@ -175,12 +186,16 @@ export class AuthService {
       ip?: string;
       userAgent?: string;
     },
+    platformRaw?: string,
   ): Promise<TokenPair> {
+    const platform = resolveClientPlatform(platformRaw);
     const user = await this.validateUser(username, password);
+    await this.assertPlatformAccess(user.id, platform);
+
     if (req) {
       req.user = { userId: user.id, username: user.username };
     }
-    const tokens = this.generateTokens(user);
+    const tokens = this.generateTokens(user, platform);
 
     // 创建登录会话(强制下线/在线列表依赖)
     await this.sessionService.createSession({
@@ -189,10 +204,40 @@ export class AuthService {
       accessJti: tokens.accessJti,
       ipAddress: req?.ip,
       userAgent: req?.userAgent,
+      platform,
       expiresAt: new Date(Date.now() + tokens.refreshExpiresIn * 1000),
     });
 
     return tokens;
+  }
+
+  /**
+   * 校验用户是否可在该端登录
+   *
+   * 用户必须在该端（或其共享端 common）至少拥有一个角色，
+   * 否则给出比"密码错误"更明确的提示。
+   */
+  private async assertPlatformAccess(
+    userId: number,
+    platform: ClientPlatform,
+  ): Promise<void> {
+    const count = await this.prisma.userRole.count({
+      where: {
+        userId,
+        role: {
+          isDeleted: false,
+          platform: { in: visiblePlatforms(platform) },
+        },
+      },
+    });
+
+    if (count === 0) {
+      throw new UnauthorizedException({
+        code: 40104,
+        message: '该账号没有本端的访问权限，请联系管理员',
+        errorCode: 'NO_PLATFORM_ACCESS',
+      });
+    }
   }
 
   /**
@@ -307,10 +352,15 @@ export class AuthService {
         throw new UnauthorizedException('用户不存在或已删除');
       }
 
-      const tokens = this.generateTokens({
-        id: user.id,
-        username: user.username,
-      });
+      const platform = resolveClientPlatform(payload.platform);
+      await this.assertPlatformAccess(user.id, platform);
+      const tokens = this.generateTokens(
+        {
+          id: user.id,
+          username: user.username,
+        },
+        platform,
+      );
       // 刷新令牌轮换:旧 refreshToken 立即失效
       await this.sessionService.rotateSession(
         refreshToken,
@@ -347,7 +397,9 @@ export class AuthService {
    * @returns 返回完整的用户信息，包括部门、角色等关联数据
    * @throws NotFoundException - 用户不存在
    */
-  async getUserInfo(userId: number) {
+  async getUserInfo(userId: number, platformRaw?: string) {
+    const platform = resolveClientPlatform(platformRaw);
+    const platforms = visiblePlatforms(platform);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -355,9 +407,18 @@ export class AuthService {
           select: { id: true, name: true },
         },
         roles: {
+          where: {
+            role: { isDeleted: false, platform: { in: platforms } },
+          },
           include: {
             role: {
-              select: { id: true, name: true, code: true, isSystem: true },
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                isSystem: true,
+                platform: true,
+              },
             },
           },
         },
@@ -373,7 +434,12 @@ export class AuthService {
     let permissions: string[];
     if (isSystemAdmin) {
       const buttonMenus = await this.prisma.menu.findMany({
-        where: { type: 'BUTTON', enable: true, permission: { not: null } },
+        where: {
+          type: 'BUTTON',
+          enable: true,
+          permission: { not: null },
+          platform: { in: platforms },
+        },
         select: { permission: true },
       });
       permissions = [
@@ -384,7 +450,12 @@ export class AuthService {
       const roleMenuRows = await this.prisma.roleMenu.findMany({
         where: {
           roleId: { in: roleIds },
-          menu: { type: 'BUTTON', enable: true, permission: { not: null } },
+          menu: {
+            type: 'BUTTON',
+            enable: true,
+            permission: { not: null },
+            platform: { in: platforms },
+          },
         },
         select: { menu: { select: { permission: true } } },
       });
@@ -415,14 +486,23 @@ export class AuthService {
       joinedAt: user.joinedAt,
       departmentId: user.departmentId,
       departmentName: user.department?.name,
+      platform,
       roles: user.roles.map((ur) => ur.role),
       permissions,
     };
   }
 
-  private async getRawUserMenus(userId: number): Promise<MenuFormat[]> {
+  private async getRawUserMenus(
+    userId: number,
+    platformRaw?: string,
+  ): Promise<MenuFormat[]> {
+    const platform = resolveClientPlatform(platformRaw);
+    const platforms = visiblePlatforms(platform);
     const userRoles = await this.prisma.userRole.findMany({
-      where: { userId },
+      where: {
+        userId,
+        role: { isDeleted: false, platform: { in: platforms } },
+      },
       include: {
         role: {
           include: {
@@ -440,10 +520,15 @@ export class AuthService {
     for (const userRole of userRoles) {
       for (const roleMenu of userRole.role.menus) {
         const menu = roleMenu.menu;
-        if (menu.enable && !menuMap.has(menu.id)) {
+        if (
+          menu.enable &&
+          platforms.includes(menu.platform as PlatformCode) &&
+          !menuMap.has(menu.id)
+        ) {
           menuMap.set(menu.id, {
             id: menu.id,
             name: menu.name,
+            platform: menu.platform,
             path: menu.path,
             component: menu.component,
             redirect: menu.redirect,
@@ -484,8 +569,11 @@ export class AuthService {
   /**
    * 获取当前用户的菜单权限（平铺数据）
    */
-  async getUserMenusFlat(userId: number): Promise<MenuFormat[]> {
-    const menus = await this.getRawUserMenus(userId);
+  async getUserMenusFlat(
+    userId: number,
+    platformRaw?: string,
+  ): Promise<MenuFormat[]> {
+    const menus = await this.getRawUserMenus(userId, platformRaw);
     return menus.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
@@ -639,10 +727,13 @@ export class AuthService {
    * @returns 返回包含 accessToken 和 refreshToken 的 Token 对
    * @description 生成访问令牌和刷新令牌，访问令牌短期有效，刷新令牌长期有效
    */
-  private generateTokens(user: {
-    id: number;
-    username: string;
-  }): TokenPair & { accessJti: string; refreshExpiresIn: number } {
+  private generateTokens(
+    user: {
+      id: number;
+      username: string;
+    },
+    platform: ClientPlatform = PLATFORMS.ADMIN,
+  ): TokenPair & { accessJti: string; refreshExpiresIn: number } {
     const accessExpiresIn = Number(
       this.configService.get<string>('JWT_EXPIRES_IN', '7200'),
     );
@@ -654,6 +745,7 @@ export class AuthService {
     const accessPayload: TokenPayload & { type: 'access'; jti: string } = {
       id: user.id,
       username: user.username,
+      platform,
       type: 'access',
       jti: accessJti,
     };
@@ -661,6 +753,7 @@ export class AuthService {
     const refreshPayload: TokenPayload & { type: string } = {
       id: user.id,
       username: user.username,
+      platform,
       type: 'refresh',
     };
 

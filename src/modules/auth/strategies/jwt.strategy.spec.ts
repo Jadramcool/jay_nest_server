@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -46,9 +48,7 @@ describe('JwtStrategy', () => {
       username: 'admin',
       isDeleted: false,
       status: 1,
-      roles: [
-        { role: { id: 1, code: 'ADMIN', isSystem: true } },
-      ],
+      roles: [{ role: { id: 1, code: 'ADMIN', isSystem: true } }],
     });
     menuFindMany.mockResolvedValue([
       { permission: 'system:user:list' },
@@ -61,6 +61,7 @@ describe('JwtStrategy', () => {
       userId: 1,
       username: 'admin',
       jti: undefined,
+      platform: 'admin',
       roles: ['ADMIN'],
       permissions: ['system:user:list', 'system:user:create'],
     });
@@ -72,9 +73,7 @@ describe('JwtStrategy', () => {
       username: 'operator',
       isDeleted: false,
       status: 1,
-      roles: [
-        { role: { id: 3, code: 'USER', isSystem: false } },
-      ],
+      roles: [{ role: { id: 3, code: 'USER', isSystem: false } }],
     });
     roleMenuFindMany.mockResolvedValue([
       { menu: { permission: 'system:user:list' } },
@@ -89,9 +88,55 @@ describe('JwtStrategy', () => {
       userId: 2,
       username: 'operator',
       jti: undefined,
+      platform: 'admin',
       roles: ['USER'],
       permissions: ['system:user:list', 'system:dict:list'],
     });
     expect(menuFindMany).not.toHaveBeenCalled();
+  });
+
+  it('filters roles and permissions by the token platform', async () => {
+    findUnique.mockResolvedValue({
+      id: 2,
+      username: 'operator',
+      isDeleted: false,
+      status: 1,
+      roles: [{ role: { id: 3, code: 'APP', isSystem: false } }],
+    });
+    roleMenuFindMany.mockResolvedValue([
+      { menu: { permission: 'app:report:generate' } },
+      { menu: { permission: 'app:report:download' } },
+    ]);
+
+    await expect(
+      strategy.validate({
+        id: 2,
+        username: 'operator',
+        platform: 'app',
+        type: 'access',
+      }),
+    ).resolves.toMatchObject({
+      platform: 'app',
+      roles: ['APP'],
+      permissions: ['app:report:generate', 'app:report:download'],
+    });
+
+    // 角色按端过滤（本端 + 共享端）
+    const userQuery = findUnique.mock.calls[0][0] as {
+      select: { roles: { where: { role: unknown } } };
+    };
+    expect(userQuery.select.roles.where.role).toEqual({
+      isDeleted: false,
+      platform: { in: ['app', 'common'] },
+    });
+
+    // 按钮权限同样按端过滤
+    const menuQuery = roleMenuFindMany.mock.calls[0][0] as {
+      where: { menu: unknown };
+    };
+    expect(menuQuery.where.menu).toMatchObject({
+      type: 'BUTTON',
+      platform: { in: ['app', 'common'] },
+    });
   });
 });

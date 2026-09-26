@@ -39,8 +39,8 @@ export class MenuController {
   @Get('tree')
   @RequirePermissions({ code: 'system:menu:list', name: '查询菜单' })
   @ApiOperation({ summary: '获取菜单树' })
-  async findTree() {
-    return this.menuService.findTree();
+  async findTree(@Query('platform') platform?: string) {
+    return this.menuService.findTree(platform);
   }
 
   @Post('create')

@@ -40,6 +40,16 @@ export class CreateMenuDto {
   type: MenuType;
 
   @ApiPropertyOptional({
+    description: '所属端: admin | app | mp | common（缺省 admin）',
+    example: 'app',
+    default: 'admin',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  platform?: string;
+
+  @ApiPropertyOptional({
     description:
       '父菜单ID。目录/菜单的父级只能是目录或空（根节点）；按钮必须挂在菜单下',
   })

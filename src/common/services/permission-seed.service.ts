@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MenuType } from '@prisma/client';
+import { platformFromPermission } from '@/common/constants/platform';
 import {
   PERMISSIONS_KEY,
   PermissionMeta,
@@ -128,19 +129,41 @@ export class PermissionSeedService implements OnModuleInit {
     // 权限码只声明在菜单表的 BUTTON 行（目录/菜单行的 permission 恒为 null）
     const menus = await this.prisma.menu.findMany({
       where: { type: 'BUTTON', permission: { not: null } },
-      select: { code: true, name: true, permission: true },
+      select: { code: true, name: true, permission: true, platform: true },
     });
+
+    // 端一致性审计：权限码带端前缀时（app:/common:），必须与按钮所在行的端一致
+    const platformMismatch = menus.filter((menu) => {
+      if (!menu.permission) return false;
+      const prefix = platformFromPermission(menu.permission);
+      return prefix !== null && prefix !== menu.platform;
+    });
+    if (platformMismatch.length > 0) {
+      this.logger.warn(
+        `以下 ${platformMismatch.length} 个按钮的权限码端前缀与所属端不一致（会导致鉴权与配置对不上，请修正权限码或菜单所属端）：` +
+          platformMismatch
+            .map(
+              (menu) =>
+                `\n  - ${menu.permission}（${menu.name}，当前端: ${menu.platform}）`,
+            )
+            .join(''),
+      );
+    }
     const menuPermissionCodes = new Set(
       menus
         .map((menu) => menu.permission)
         .filter((permission): permission is string => Boolean(permission)),
     );
 
-    const missing = uniqueSeeds.filter((seed) => !menuPermissionCodes.has(seed.code));
+    const missing = uniqueSeeds.filter(
+      (seed) => !menuPermissionCodes.has(seed.code),
+    );
     if (missing.length > 0) {
       this.logger.warn(
-        `以下 ${missing.length} 个接口权限码在菜单管理中不存在（普通角色将无法访问，请在菜单管理对应菜单下新建按钮）：`
-        + missing.map((seed) => `\n  - ${seed.code}（${seed.name}，${seed.route}）`).join(''),
+        `以下 ${missing.length} 个接口权限码在菜单管理中不存在（普通角色将无法访问，请在菜单管理对应菜单下新建按钮）：` +
+          missing
+            .map((seed) => `\n  - ${seed.code}（${seed.name}，${seed.route}）`)
+            .join(''),
       );
     }
 
@@ -149,8 +172,10 @@ export class PermissionSeedService implements OnModuleInit {
     );
     if (unused.length > 0) {
       this.logger.log(
-        `菜单管理中有 ${unused.length} 个按钮权限码暂未挂接任何接口：`
-        + unused.map((menu) => `\n  - ${menu.permission}（${menu.name}）`).join(''),
+        `菜单管理中有 ${unused.length} 个按钮权限码暂未挂接任何接口：` +
+          unused
+            .map((menu) => `\n  - ${menu.permission}（${menu.name}）`)
+            .join(''),
       );
     }
 

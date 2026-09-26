@@ -1,3 +1,4 @@
+import { PLATFORMS } from '@/common/constants/platform';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 
@@ -22,6 +23,8 @@ export class SessionService {
     accessJti?: string;
     ipAddress?: string;
     userAgent?: string;
+    /** 登录端: admin | app | mp */
+    platform?: string;
     expiresAt: Date;
   }) {
     return this.prisma.userSession.create({
@@ -31,6 +34,7 @@ export class SessionService {
         accessJti: params.accessJti ?? null,
         ipAddress: params.ipAddress?.slice(0, 100) ?? null,
         userAgent: params.userAgent?.slice(0, 200) ?? null,
+        platform: params.platform ?? PLATFORMS.ADMIN,
         expiresAt: params.expiresAt,
       },
     });

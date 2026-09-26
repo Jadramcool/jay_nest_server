@@ -3,6 +3,12 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  PLATFORMS,
+  PLATFORM_LABELS,
+  type PlatformCode,
+  isPlatformCode,
+} from '@/common/constants/platform';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Menu, Prisma, MenuType } from '@prisma/client';
 import { CreateMenuDto, UpdateMenuDto, QueryMenuDto } from './dto';
@@ -21,6 +27,7 @@ export interface MenuTreeNode {
   code: string;
   permission: string | null;
   type: MenuType;
+  platform: string;
   pid: number | null;
   path: string | null;
   redirect: string | null;
@@ -53,6 +60,7 @@ export class MenuService {
 
   async create(createMenuDto: CreateMenuDto) {
     const { code, type } = createMenuDto;
+    const platform = this.resolvePlatform(createMenuDto.platform);
 
     const existingMenu = await this.prisma.menu.findUnique({
       where: { code },
@@ -62,7 +70,12 @@ export class MenuService {
       throw new BadRequestException('菜单编码已存在');
     }
 
-    await this.assertParentRule(type, createMenuDto.pid ?? null);
+    await this.assertParentRule(
+      type,
+      createMenuDto.pid ?? null,
+      undefined,
+      platform,
+    );
     const permission = await this.resolvePermission(
       type,
       createMenuDto.permission,
@@ -74,6 +87,7 @@ export class MenuService {
         code: createMenuDto.code,
         permission,
         type: createMenuDto.type,
+        platform,
         pid: createMenuDto.pid,
         path: createMenuDto.path,
         redirect: createMenuDto.redirect,
@@ -119,6 +133,7 @@ export class MenuService {
         pid: 'eq',
         show: 'eq',
         enable: 'eq',
+        platform: 'eq',
       }),
     };
 
@@ -150,8 +165,13 @@ export class MenuService {
     return this.formatMenu(menu);
   }
 
-  async findTree() {
+  /**
+   * 菜单树
+   * @param platform 指定端时只返回该端的节点（管理端「菜单管理」按端 Tab 使用）
+   */
+  async findTree(platform?: string) {
     const menus = await this.prisma.menu.findMany({
+      where: platform ? { platform } : {},
       orderBy: { order: 'asc' },
     });
 
@@ -186,8 +206,12 @@ export class MenuService {
     const nextType = updateMenuDto.type ?? menu.type;
     const nextPid =
       updateMenuDto.pid !== undefined ? updateMenuDto.pid : menu.pid;
+    const nextPlatform =
+      updateMenuDto.platform !== undefined
+        ? this.resolvePlatform(updateMenuDto.platform)
+        : menu.platform;
 
-    await this.assertParentRule(nextType, nextPid, id);
+    await this.assertParentRule(nextType, nextPid, id, nextPlatform);
     if (nextType !== menu.type) {
       await this.assertChildrenCompatible(id, nextType);
     }
@@ -204,6 +228,7 @@ export class MenuService {
       data: {
         ...rest,
         type: nextType,
+        platform: nextPlatform,
         permission,
         ...(extraData !== undefined && {
           extraData: extraData as Prisma.InputJsonValue,
@@ -274,10 +299,24 @@ export class MenuService {
    *
    * @param selfId 编辑场景传入自身 ID，用于防环；新建时省略
    */
+  /**
+   * 归一化端标识：非法值直接拒绝，避免脏数据
+   */
+  private resolvePlatform(value?: string | null): PlatformCode {
+    if (value === undefined || value === null || value === '') {
+      return PLATFORMS.ADMIN;
+    }
+    if (!isPlatformCode(value)) {
+      throw new BadRequestException(`不支持的端: ${value}`);
+    }
+    return value;
+  }
+
   private async assertParentRule(
     type: MenuType,
     pid: number | null,
     selfId?: number,
+    platform?: string,
   ): Promise<void> {
     const rule = MENU_TYPE_RULES[type];
 
@@ -303,6 +342,18 @@ export class MenuService {
       throw new BadRequestException(
         `${MENU_TYPE_LABEL[type]}的父级只能是${describeAllowedParents(type)}，` +
           `当前选择的是${MENU_TYPE_LABEL[cursor.type]}「${cursor.name}」`,
+      );
+    }
+
+    // 端一致性：子节点必须与父节点同端（父节点为"通用"时不受限）
+    if (
+      platform &&
+      cursor.platform !== PLATFORMS.COMMON &&
+      cursor.platform !== platform
+    ) {
+      throw new BadRequestException(
+        `子节点的端必须与父节点一致：父节点「${cursor.name}」属于` +
+          `${PLATFORM_LABELS[cursor.platform as PlatformCode] ?? cursor.platform}`,
       );
     }
 
@@ -384,7 +435,7 @@ export class MenuService {
   private findMenuBrief(id: number) {
     return this.prisma.menu.findUnique({
       where: { id },
-      select: { id: true, name: true, type: true, pid: true },
+      select: { id: true, name: true, type: true, pid: true, platform: true },
     });
   }
 
@@ -395,6 +446,7 @@ export class MenuService {
       code: menu.code,
       permission: menu.permission,
       type: menu.type,
+      platform: menu.platform,
       pid: menu.pid,
       path: menu.path,
       redirect: menu.redirect,

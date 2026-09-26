@@ -24,11 +24,13 @@ export class TransformInterceptor<T> implements NestInterceptor<
     next: CallHandler,
   ): Observable<Response<T>> {
     return next.handle().pipe(
-      map((data) => ({
-        code: 200,
-        message: '操作成功',
-        data: data as T,
-      })),
+      map(
+        (data: T): Response<T> => ({
+          code: 200,
+          message: '操作成功',
+          data,
+        }),
+      ),
     );
   }
 }

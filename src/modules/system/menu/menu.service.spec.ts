@@ -35,6 +35,7 @@ describe('MenuService 菜单树结构约束', () => {
       code: 'Node',
       permission: null,
       type: 'MENU',
+      platform: 'admin',
       pid: null,
       path: null,
       redirect: null,

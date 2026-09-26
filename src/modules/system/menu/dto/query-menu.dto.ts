@@ -31,6 +31,11 @@ export class QueryMenuDto extends PaginationDto {
   @IsEnum(MenuType)
   type?: MenuType;
 
+  @ApiPropertyOptional({ description: '所属端: admin | app | mp | common' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
+
   @ApiPropertyOptional({ description: '父菜单ID' })
   @IsOptional()
   @Type(() => Number)
