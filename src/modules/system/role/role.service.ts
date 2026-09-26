@@ -123,10 +123,19 @@ export class RoleService {
     return paginate(formattedRoles, { page, pageSize, total });
   }
 
+  /**
+   * 角色下拉数据（分配角色、通知范围等场景）
+   *
+   * 带上所属端与数量：管理端给用户分配角色时，必须能区分「管理端角色」和
+   * 「App 端角色」，否则无法把用户配到 App 端登录。
+   */
   async findAllSimple() {
     const roles = await this.prisma.role.findMany({
       where: { isDeleted: false },
       orderBy: { createdTime: 'desc' },
+      include: {
+        _count: { select: { menus: true, users: true } },
+      },
     });
     return roles.map((role) => ({
       id: role.id,
@@ -134,6 +143,9 @@ export class RoleService {
       name: role.name,
       description: role.description,
       isSystem: role.isSystem,
+      platform: role.platform,
+      menuCount: role._count.menus,
+      userCount: role._count.users,
       createdTime: role.createdTime,
     }));
   }
@@ -250,6 +262,7 @@ export class RoleService {
       code: updatedRole.code,
       name: updatedRole.name,
       description: updatedRole.description,
+      platform: updatedRole.platform,
     };
   }
 

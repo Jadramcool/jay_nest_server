@@ -11,6 +11,7 @@ interface MockOptions {
   role?: Record<string, unknown> | null;
   menus?: MenuRow[];
   assignedMenus?: { menu: { name: string; platform: string } }[];
+  allRoles?: Record<string, unknown>[];
 }
 
 function createService(options: MockOptions = {}) {
@@ -34,6 +35,7 @@ function createService(options: MockOptions = {}) {
     role: {
       findUnique: jest.fn().mockResolvedValue(role),
       findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue(options.allRoles ?? []),
       update: jest.fn().mockResolvedValue(role),
     },
     menu: {
@@ -147,6 +149,37 @@ describe('RoleService 端约束', () => {
       },
       select: { menu: { select: { name: true } } },
     });
+  });
+
+  it('角色下拉数据带所属端与数量', async () => {
+    const { service } = createService({
+      allRoles: [
+        {
+          id: 3,
+          code: 'APP',
+          name: 'App 用户',
+          description: '默认 App 角色',
+          isSystem: false,
+          platform: 'app',
+          createdTime: new Date('2026-01-02T03:04:05.000Z'),
+          _count: { menus: 9, users: 1 },
+        },
+      ],
+    });
+
+    await expect(service.findAllSimple()).resolves.toEqual([
+      {
+        id: 3,
+        code: 'APP',
+        name: 'App 用户',
+        description: '默认 App 角色',
+        isSystem: false,
+        platform: 'app',
+        menuCount: 9,
+        userCount: 1,
+        createdTime: new Date('2026-01-02T03:04:05.000Z'),
+      },
+    ]);
   });
 
   it('角色不存在时抛 NotFound', async () => {
