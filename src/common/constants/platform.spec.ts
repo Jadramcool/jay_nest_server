@@ -1,5 +1,6 @@
 import {
   PLATFORMS,
+  configurablePlatforms,
   isClientPlatform,
   isPlatformCode,
   platformFromPermission,
@@ -31,6 +32,22 @@ describe('platform 常量与工具', () => {
   it('visiblePlatforms 返回本端 + 共享端', () => {
     expect(visiblePlatforms(PLATFORMS.APP)).toEqual(['app', 'common']);
     expect(visiblePlatforms(PLATFORMS.ADMIN)).toEqual(['admin', 'common']);
+  });
+
+  it('configurablePlatforms 限定普通角色只能配置本端与通用端', () => {
+    expect(configurablePlatforms('admin')).toEqual(['admin', 'common']);
+    expect(configurablePlatforms('app')).toEqual(['app', 'common']);
+    expect(configurablePlatforms(undefined)).toEqual(['admin', 'common']);
+    expect(configurablePlatforms('unknown')).toEqual(['admin', 'common']);
+  });
+
+  it('configurablePlatforms 允许通用角色配置所有端', () => {
+    expect(configurablePlatforms(PLATFORMS.COMMON)).toEqual([
+      'admin',
+      'app',
+      'mp',
+      'common',
+    ]);
   });
 
   it('platformFromPermission 只识别已登记的端前缀', () => {

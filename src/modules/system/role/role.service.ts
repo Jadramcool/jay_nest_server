@@ -7,6 +7,7 @@ import {
   PLATFORMS,
   PLATFORM_LABELS,
   type PlatformCode,
+  configurablePlatforms,
   isPlatformCode,
 } from '@/common/constants/platform';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -217,12 +218,12 @@ export class RoleService {
         ? this.resolvePlatform(updateRoleDto.platform)
         : undefined;
 
-    // 切换端时必须保证已分配菜单仍属于新端，否则会出现跨端授权
+    // 切换端时必须保证已分配菜单仍属于新端的可配置范围，否则会出现跨端授权
     if (nextPlatform && nextPlatform !== role.platform) {
       const foreignMenus = await this.prisma.roleMenu.findMany({
         where: {
           roleId: id,
-          menu: { platform: { notIn: [nextPlatform, PLATFORMS.COMMON] } },
+          menu: { platform: { notIn: configurablePlatforms(nextPlatform) } },
         },
         select: { menu: { select: { name: true } } },
       });
@@ -293,21 +294,23 @@ export class RoleService {
       throw new BadRequestException('系统内置角色的权限不可调整');
     }
 
-    // 端约束：角色只能分配到本端（或通用端）的菜单
+    // 端约束：普通角色只能分配本端与通用端菜单；通用角色在所有端生效，可分配所有端
     if (menuIds.length > 0) {
+      const allowedPlatforms = configurablePlatforms(role.platform);
       const menus = await this.prisma.menu.findMany({
         where: { id: { in: menuIds } },
         select: { id: true, name: true, platform: true },
       });
       const foreignMenus = menus.filter(
-        (menu) =>
-          menu.platform !== role.platform && menu.platform !== PLATFORMS.COMMON,
+        (menu) => !allowedPlatforms.includes(menu.platform as PlatformCode),
       );
       if (foreignMenus.length > 0) {
         throw new BadRequestException(
           `角色「${role.name}」属于${
             PLATFORM_LABELS[role.platform as PlatformCode] ?? role.platform
-          }，不能分配其他端的菜单：${foreignMenus
+          }，仅能分配${allowedPlatforms
+            .map((platform) => PLATFORM_LABELS[platform])
+            .join('、')}的菜单：${foreignMenus
             .map((menu) => menu.name)
             .join('、')}`,
         );

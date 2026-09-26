@@ -64,6 +64,24 @@ export function visiblePlatforms(client: ClientPlatform): PlatformCode[] {
 }
 
 /**
+ * 角色可用的权限端集合
+ *
+ * - 普通角色（属于某个具体端）：本端 + 通用端
+ * - 通用角色（端为 common）：在所有端都生效，因此可分配所有端 + 通用端的权限
+ */
+export function configurablePlatforms(
+  rolePlatform?: string | null,
+): PlatformCode[] {
+  if (rolePlatform === PLATFORMS.COMMON) {
+    return [...CLIENT_PLATFORMS, PLATFORMS.COMMON];
+  }
+  return [
+    isPlatformCode(rolePlatform) ? rolePlatform : PLATFORMS.ADMIN,
+    PLATFORMS.COMMON,
+  ];
+}
+
+/**
  * 从权限码解析端前缀
  *
  * 约定：新增权限码建议带端前缀（app:report:generate、common:user:profile），
