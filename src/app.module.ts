@@ -8,7 +8,6 @@ import { UploadModule } from './modules/upload/upload.module';
 import { PublicModule } from './modules/public/public.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TodoModule } from './modules/todo/todo.module';
-import { MetricsModule } from './modules/metrics/metrics.module';
 import { SessionModule } from './modules/session/session.module';
 
 @Module({
@@ -25,7 +24,6 @@ import { SessionModule } from './modules/session/session.module';
     PublicModule,
     DashboardModule,
     TodoModule,
-    MetricsModule,
     SessionModule,
   ],
 })

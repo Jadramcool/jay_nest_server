@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { OperationStatus, OperationType, Prisma } from '@prisma/client';
-import * as os from 'os';
 import { PrismaService } from '@/prisma/prisma.service';
 import { SessionService } from '@/modules/session/session.service';
 
@@ -99,7 +98,6 @@ export class DashboardService {
    * 近 N 天趋势。
    *
    * 指标口径:
-   * - visits = 前端上报的 pageview 事件数(ClientEvent, type='pageview')
    * - operations = 操作日志条数(OperationLog)
    * - newUsers = 当日注册用户数
    *
@@ -113,13 +111,7 @@ export class DashboardService {
     today.setHours(0, 0, 0, 0);
     const start = new Date(today.getTime() - (days - 1) * 86400000);
 
-    const [visitRows, operationRows, userRows] = await Promise.all([
-      this.prisma.$queryRaw<DailyCountRow[]>(
-        Prisma.sql`SELECT DATE_FORMAT(created_time, '%Y-%m-%d') AS day, COUNT(*) AS cnt
-          FROM client_event
-          WHERE type = 'pageview' AND created_time >= ${start}
-          GROUP BY day`,
-      ),
+    const [operationRows, userRows] = await Promise.all([
       this.prisma.$queryRaw<DailyCountRow[]>(
         Prisma.sql`SELECT DATE_FORMAT(created_time, '%Y-%m-%d') AS day, COUNT(*) AS cnt
           FROM operation_log
@@ -136,23 +128,20 @@ export class DashboardService {
 
     const toDailyMap = (rows: DailyCountRow[]) =>
       new Map(rows.map((row) => [row.day, Number(row.cnt)]));
-    const visitMap = toDailyMap(visitRows);
     const operationMap = toDailyMap(operationRows);
     const userMap = toDailyMap(userRows);
 
     const dates: string[] = [];
-    const visits: number[] = [];
     const newUsers: number[] = [];
     const operations: number[] = [];
     for (let i = 0; i < days; i++) {
       const key = this.formatDay(new Date(start.getTime() + i * 86400000));
       dates.push(key);
-      visits.push(visitMap.get(key) ?? 0);
       newUsers.push(userMap.get(key) ?? 0);
       operations.push(operationMap.get(key) ?? 0);
     }
 
-    return { dates, visits, newUsers, operations };
+    return { dates, newUsers, operations };
   }
 
   /**
@@ -251,34 +240,6 @@ export class DashboardService {
     return logs.map((log) => this.mapActivity(log));
   }
 
-  async getSystemInfo() {
-    const totalMem = os.totalmem();
-    const freeMem = os.freemem();
-    const cpus = os.cpus();
-    let totalIdle = 0;
-    let totalTick = 0;
-    for (const cpu of cpus) {
-      totalTick += Object.values(cpu.times).reduce(
-        (sum, time) => sum + time,
-        0,
-      );
-      totalIdle += cpu.times.idle;
-    }
-
-    const dbCount = await this.prisma.operationLog.count();
-
-    return {
-      cpu: Math.round((1 - totalIdle / totalTick) * 100),
-      memory: Math.round(((totalMem - freeMem) / totalMem) * 100),
-      disk: 0,
-      uptime: this.formatUptime(os.uptime()),
-      version: process.env.npm_package_version || '1.0.0',
-      nodeVersion: process.version,
-      platform: `${os.type()} ${os.arch()}`,
-      dbRecords: dbCount,
-    };
-  }
-
   /**
    * 最近动态。
    *
@@ -319,16 +280,5 @@ export class DashboardService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}`;
-  }
-
-  private formatUptime(seconds: number): string {
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor((seconds % 86400) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const parts: string[] = [];
-    if (d > 0) parts.push(`${d}天`);
-    if (h > 0) parts.push(`${h}小时`);
-    parts.push(`${m}分钟`);
-    return parts.join(' ');
   }
 }

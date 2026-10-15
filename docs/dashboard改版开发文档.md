@@ -4,6 +4,8 @@
 > 涉及仓库：`jdm-nest-server`（后端）、`jdm-admin`（前端）  
 > 关联背景：代码审查发现 dashboard 四个接口对任意登录用户开放，其中 `system-info`（服务器基础设施信息）与 `activities`（全站操作日志）属敏感数据；同时首页内容对普通用户毫无价值。
 
+> ⚠️ 2026-10-15 补充：前端监控模块已整体下线。本文中与 `system-info`、监控页（`/monitor`）、`system:monitor:view`、`client_event` 访问量趋势相关的条目**仅作历史记录**，对应接口、页面、权限与数据表均已移除；`getTrends` 现只返回 `operations` / `newUsers` 两条序列。
+
 ---
 
 ## 1. 背景与问题

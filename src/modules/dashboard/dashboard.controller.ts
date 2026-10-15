@@ -13,7 +13,6 @@ import {
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { RequirePermissions } from '@/common/decorators/permissions.decorator';
 
 @ApiTags('仪表盘')
 @ApiBearerAuth()
@@ -41,14 +40,6 @@ export class DashboardController {
   @ApiOperation({ summary: '获取当前用户个人工作台数据' })
   async getMine(@CurrentUser() user: { userId: number }) {
     return this.dashboardService.getMine(user.userId);
-  }
-
-  @Get('system-info')
-  @ApiOperation({ summary: '获取系统信息' })
-  // 收口：基础设施信息属监控页数据，仅持有监控查看权的调用者可读
-  @RequirePermissions({ code: 'system:monitor:view', name: '查看监控' })
-  async getSystemInfo() {
-    return this.dashboardService.getSystemInfo();
   }
 
   @Get('activities')
