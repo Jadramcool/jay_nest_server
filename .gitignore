@@ -11,7 +11,9 @@
 .env.*.local
 
 # IDE
-.vscode/
+# .vscode 下的个人配置忽略，但扩展推荐清单要进版本库（团队/多 profile 自动提示）
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
