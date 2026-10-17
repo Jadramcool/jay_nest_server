@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as svgCaptcha from 'svg-captcha';
-import { ConfigResolverService } from '@/modules/system/sys-config/config-resolver.service';
+import { SettingsService } from '@/modules/settings/settings.service';
 
 /**
  * 登录守卫:图形验证码 + 失败限流(内存实现,单实例部署有效)
@@ -10,8 +10,10 @@ import { ConfigResolverService } from '@/modules/system/sys-config/config-resolv
  *   - 可用环境变量 LOGIN_CAPTCHA_ENABLED=false 关闭(本地/测试环境)
  * - 限流:按 用户名+IP 计数,连续失败达到阈值后锁定(错误码 42901);
  *   另有独立于 IP 的用户名全局计数(阈值 ×3),防多 IP 轮询爆破
- *   - 阈值与锁定分钟数读系统配置 `security.login.maxRetry` / `security.login.lockMinutes`
- *   - 配置写入时 ConfigResolverService 自动失效缓存,变更即时生效
+ *   - 阈值与锁定分钟数读设置 `security.login.maxRetry` / `security.login.lockMinutes`
+ *     (默认值声明在 settings/registry,管理端改完即时生效)
+ * - 解锁:运营可在用户管理页对该账号「解锁登录」(PUT /auth/unlock),
+ *   清掉内存里的所有维度计数,不必等锁定窗口到期
  *
  * 注意:多实例部署时需替换为 Redis 实现(当前内存方案仅单实例有效)
  */
@@ -27,8 +29,6 @@ interface RateLimitEntry {
 }
 
 const CAPTCHA_TTL = 5 * 60 * 1000; // 5 分钟
-const DEFAULT_MAX_FAILURES = 5;
-const DEFAULT_LOCK_MINUTES = 15;
 
 @Injectable()
 export class LoginGuardService {
@@ -39,7 +39,7 @@ export class LoginGuardService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly configResolver: ConfigResolverService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** 验证码是否启用(LOGIN_CAPTCHA_ENABLED,默认开启) */
@@ -50,20 +50,14 @@ export class LoginGuardService {
     );
   }
 
-  /** 连续失败阈值(读系统配置,默认 5 次) */
+  /** 连续失败阈值(读设置,默认值见注册表 security.login.maxRetry) */
   private async getMaxFailures(): Promise<number> {
-    return this.configResolver.get<number>(
-      'security.login.maxRetry',
-      DEFAULT_MAX_FAILURES,
-    );
+    return this.settings.get('security.login.maxRetry');
   }
 
-  /** 锁定时长毫秒(读系统配置,默认 15 分钟) */
+  /** 锁定时长毫秒(读设置,默认值见注册表 security.login.lockMinutes) */
   private async getLockDuration(): Promise<number> {
-    const minutes = await this.configResolver.get<number>(
-      'security.login.lockMinutes',
-      DEFAULT_LOCK_MINUTES,
-    );
+    const minutes = await this.settings.get('security.login.lockMinutes');
     return minutes * 60 * 1000;
   }
 
@@ -183,5 +177,27 @@ export class LoginGuardService {
   resetFailures(username: string, ip?: string): void {
     this.rateLimitStore.delete(this.rateKey(username, ip));
     this.usernameFailureStore.delete(username);
+  }
+
+  /**
+   * 手动解锁某账号(运营操作):清掉该用户名的所有维度计数。
+   *
+   * - `用户名:IP` 维度:按前缀清(`admin:` 不会误伤 `admin2:`)
+   * - 用户名全局维度:直接删 key
+   *
+   * @returns cleared = 实际清掉的计数条目数(0 表示该账号当前未被锁定/无失败记录)
+   */
+  unlock(username: string): { username: string; cleared: number } {
+    let cleared = 0;
+    const prefix = `${username}:`;
+    for (const key of [...this.rateLimitStore.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.rateLimitStore.delete(key);
+        cleared += 1;
+      }
+    }
+    if (this.usernameFailureStore.delete(username)) cleared += 1;
+
+    return { username, cleared };
   }
 }

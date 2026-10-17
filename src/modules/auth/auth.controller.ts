@@ -11,6 +11,7 @@
  * - 更新用户信息 /auth/user/update
  * - 验证密码 /auth/user/checkPassword
  * - 修改密码 /auth/user/updatePassword
+ * - 解锁登录失败锁定 /auth/unlock
  */
 import {
   Controller,
@@ -36,11 +37,17 @@ import {
   LoginDto,
   RegisterDto,
   RefreshTokenDto,
-  UpdateUserDto,
+  UpdateProfileDto,
   CheckPasswordDto,
   UpdatePasswordDto,
+  UnlockLoginDto,
 } from './dto';
-import { Public, CurrentUser, OperationLog } from '@/common/decorators';
+import {
+  Public,
+  CurrentUser,
+  OperationLog,
+  RequirePermissions,
+} from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 
 /**
@@ -253,9 +260,9 @@ export class AuthController {
   @ApiOperation({ summary: '更新当前用户信息' })
   async updateUser(
     @CurrentUser() user: { userId: number; username: string },
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    return this.authService.updateUser(user.userId, updateUserDto);
+    return this.authService.updateUser(user.userId, updateProfileDto);
   }
 
   /**
@@ -303,5 +310,27 @@ export class AuthController {
       dto.newPassword,
       user.jti,
     );
+  }
+
+  /**
+   * 解除某账号的登录失败锁定(运营操作)
+   *
+   * 登录失败限流状态在 LoginGuardService 的内存里,等待锁定窗口到期前无法自助恢复,
+   * 这里给运营一个立即放行的入口(清掉该用户名下的所有维度计数)。
+   *
+   * @param dto - 要解锁的用户名
+   * @returns cleared = 实际清掉的计数条目数(0 表示该账号当前未被锁定)
+   * @note 需要 `system:user:update` 权限
+   */
+  @Put('unlock')
+  @RequirePermissions({ code: 'system:user:update', name: '编辑用户' })
+  @HttpCode(HttpStatus.OK)
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '解锁登录失败锁定',
+  })
+  @ApiOperation({ summary: '解除账号的登录失败锁定' })
+  unlockLogin(@Body() dto: UnlockLoginDto) {
+    return this.loginGuardService.unlock(dto.username);
   }
 }

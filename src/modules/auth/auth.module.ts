@@ -12,14 +12,14 @@ import { PermissionsGuard } from '@/common/guards/permissions.guard';
 import { PermissionSeedService } from '@/common/services/permission-seed.service';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { SessionModule } from '@/modules/session/session.module';
-import { SysConfigModule } from '@/modules/system/sys-config/sys-config.module';
+import { SettingsModule } from '@/modules/settings/settings.module';
 import { getJwtSecret } from '@/common/utils/jwt-config.util';
 
 @Module({
   imports: [
     PrismaModule,
     SessionModule,
-    SysConfigModule,
+    SettingsModule,
     DiscoveryModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

@@ -10,6 +10,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TodoModule } from './modules/todo/todo.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { SessionModule } from './modules/session/session.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SessionModule } from './modules/session/session.module';
     TodoModule,
     MetricsModule,
     SessionModule,
+    MaintenanceModule,
   ],
 })
 export class AppModule {}

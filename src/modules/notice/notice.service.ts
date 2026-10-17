@@ -30,6 +30,9 @@ export interface NoticeResponse {
   publishedAt: Date | null;
   createdTime: Date;
   updatedTime: Date;
+  /** 是否已被清理(软删)：管理端的「已清理」列表与恢复按钮依赖它 */
+  isDeleted: boolean;
+  deletedTime: Date | null;
 }
 
 type NoticeForResponse = Notice & {
@@ -87,10 +90,16 @@ export class NoticeService {
   }
 
   async findAll(queryNoticeDto: QueryNoticeDto) {
-    const { page = 1, pageSize = 20, ...filters } = queryNoticeDto;
+    const {
+      page = 1,
+      pageSize = 20,
+      isDeleted = false,
+      ...filters
+    } = queryNoticeDto;
 
     const where: Prisma.NoticeWhereInput = {
-      isDeleted: false,
+      // 默认只看未清理；管理端切到「已清理」时传 isDeleted=true
+      isDeleted,
       ...buildQueryWhere(filters, {
         title: 'contains',
         type: 'eq',
@@ -412,6 +421,28 @@ export class NoticeService {
     });
 
     return { ids, count: result.count };
+  }
+
+  /**
+   * 恢复被清理的公告(保留期清理或误删)。
+   *
+   * 只把软删标记还原,不触碰接收者/范围关联 —— 那些行在软删期间一直保留。
+   */
+  async restore(id: number) {
+    const notice = await this.prisma.notice.findUnique({ where: { id } });
+    if (!notice) {
+      throw new NotFoundException(`公告 ID ${id} 不存在`);
+    }
+    if (!notice.isDeleted) {
+      throw new BadRequestException('该公告未被清理，无需恢复');
+    }
+
+    const restored = await this.prisma.notice.update({
+      where: { id },
+      data: { isDeleted: false, deletedTime: null },
+    });
+
+    return { id: restored.id, title: restored.title, isDeleted: false };
   }
 
   // ============ 用户端接口 ============
@@ -755,6 +786,8 @@ export class NoticeService {
       publishedAt: notice.publishedAt,
       createdTime: notice.createdTime,
       updatedTime: notice.updatedTime,
+      isDeleted: notice.isDeleted,
+      deletedTime: notice.deletedTime,
     };
   }
 }

@@ -160,4 +160,16 @@ export class NoticeController {
   async batchRemove(@Body() dto: BatchRemoveDto) {
     return this.noticeService.batchRemove(dto.ids);
   }
+
+  @Put('restore/:id')
+  @RequirePermissions({ code: 'notice:delete', name: '删除通知' })
+  @OperationLog({
+    operationType: OperationType.UPDATE,
+    description: '恢复公告',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '恢复被清理的公告' })
+  async restore(@Param('id', ParseIntPipe) id: number) {
+    return this.noticeService.restore(id);
+  }
 }

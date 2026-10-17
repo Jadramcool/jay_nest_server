@@ -1,25 +1,25 @@
 import { HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoginGuardService } from './login-guard.service';
-import { ConfigResolverService } from '@/modules/system/sys-config/config-resolver.service';
+import { SettingsService } from '@/modules/settings/settings.service';
 
 describe('LoginGuardService', () => {
   let service: LoginGuardService;
 
   const configGet = jest.fn();
-  const resolverGet = jest.fn<Promise<number>, [key: string]>();
+  const settingsGet = jest.fn<Promise<number>, [key: string]>();
 
   beforeEach(() => {
     configGet.mockReturnValue('true');
-    // 默认系统配置:最大失败 5 次,锁定 15 分钟
-    resolverGet.mockImplementation((key: string) =>
+    // 默认设置:最大失败 5 次,锁定 15 分钟
+    settingsGet.mockImplementation((key: string) =>
       key === 'security.login.lockMinutes'
         ? Promise.resolve(15)
         : Promise.resolve(5),
     );
     service = new LoginGuardService(
       { get: configGet } as unknown as ConfigService,
-      { get: resolverGet } as unknown as ConfigResolverService,
+      { get: settingsGet } as unknown as SettingsService,
     );
     jest.useFakeTimers();
   });
@@ -91,15 +91,15 @@ describe('LoginGuardService', () => {
       );
     });
 
-    it('should use configured max retries from sys config', async () => {
-      resolverGet.mockResolvedValue(3);
+    it('should use configured max retries from settings', async () => {
+      settingsGet.mockResolvedValue(3);
       for (let i = 0; i < 3; i++)
         await service.recordFailure('admin', '127.0.0.1');
 
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow(
         '登录失败次数过多',
       );
-      expect(resolverGet.mock.calls[0][0]).toBe('security.login.maxRetry');
+      expect(settingsGet.mock.calls[0][0]).toBe('security.login.maxRetry');
     });
 
     it('should throw 42901 code when locked', async () => {
@@ -137,8 +137,8 @@ describe('LoginGuardService', () => {
       expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
     });
 
-    it('should use configured lock minutes from sys config', async () => {
-      resolverGet.mockImplementation((key: string) =>
+    it('should use configured lock minutes from settings', async () => {
+      settingsGet.mockImplementation((key: string) =>
         key === 'security.login.lockMinutes'
           ? Promise.resolve(1)
           : Promise.resolve(5),
@@ -160,6 +160,69 @@ describe('LoginGuardService', () => {
       expect(() => service.assertNotLocked('other', '127.0.0.1')).not.toThrow();
       // 同一用户不同 IP 不受影响
       expect(() => service.assertNotLocked('admin', '10.0.0.1')).not.toThrow();
+    });
+  });
+
+  describe('手动解锁', () => {
+    it('should clear the lock immediately', async () => {
+      for (let i = 0; i < 5; i++)
+        await service.recordFailure('admin', '127.0.0.1');
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).toThrow();
+
+      const result = service.unlock('admin');
+
+      // 1 条 IP 维度计数 + 1 条用户名全局计数
+      expect(result).toEqual({ username: 'admin', cleared: 2 });
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
+      // 解锁后从 0 重新计数
+      await service.recordFailure('admin', '127.0.0.1');
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
+    });
+
+    it('should clear counts from every IP of that user', async () => {
+      for (const ip of ['10.0.0.1', '10.0.0.2']) {
+        for (let i = 0; i < 5; i++) await service.recordFailure('admin', ip);
+      }
+
+      const result = service.unlock('admin');
+
+      // 2 条 IP 维度计数 + 1 条用户名全局计数
+      expect(result.cleared).toBe(3);
+      expect(() => service.assertNotLocked('admin', '10.0.0.1')).not.toThrow();
+      expect(() => service.assertNotLocked('admin', '10.0.0.2')).not.toThrow();
+    });
+
+    it('should clear the username-global counter too', async () => {
+      // 单 IP 都没到阈值,但全局维度(阈值 5×3=15)已被锁定
+      for (let i = 0; i < 16; i++)
+        await service.recordFailure('admin', `10.0.0.${i + 1}`);
+      expect(() => service.assertNotLocked('admin', '192.168.1.1')).toThrow();
+
+      service.unlock('admin');
+
+      expect(() =>
+        service.assertNotLocked('admin', '192.168.1.1'),
+      ).not.toThrow();
+    });
+
+    it('should only affect the given username', async () => {
+      for (let i = 0; i < 5; i++) {
+        await service.recordFailure('admin', '127.0.0.1');
+        await service.recordFailure('admin2', '127.0.0.1');
+      }
+
+      // 前缀匹配不能误伤 admin2
+      service.unlock('admin');
+
+      expect(() => service.assertNotLocked('admin', '127.0.0.1')).not.toThrow();
+      expect(() => service.assertNotLocked('admin2', '127.0.0.1')).toThrow();
+    });
+
+    it('should report cleared=0 when nothing to unlock', () => {
+      expect(service.unlock('nobody')).toEqual({
+        username: 'nobody',
+        cleared: 0,
+      });
     });
   });
 });
