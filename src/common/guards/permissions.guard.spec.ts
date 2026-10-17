@@ -48,17 +48,15 @@ describe('PermissionsGuard', () => {
   });
 
   it('should allow when user holds the required permission', () => {
-    setMetadata([{ code: 'system:monitor:view', name: '查看监控' }]);
+    setMetadata([{ code: 'system:user:update', name: '修改用户' }]);
 
     expect(
-      guard.canActivate(
-        createContext({ permissions: ['system:monitor:view'] }),
-      ),
+      guard.canActivate(createContext({ permissions: ['system:user:update'] })),
     ).toBe(true);
   });
 
-  it('should deny (403) when user lacks system:monitor:view', () => {
-    setMetadata([{ code: 'system:monitor:view', name: '查看监控' }]);
+  it('should deny (403) when user lacks the required permission', () => {
+    setMetadata([{ code: 'system:user:update', name: '修改用户' }]);
 
     expect(
       guard.canActivate(createContext({ permissions: ['system:user:list'] })),
@@ -66,7 +64,7 @@ describe('PermissionsGuard', () => {
   });
 
   it('should deny when user or permissions are missing', () => {
-    setMetadata([{ code: 'system:monitor:view', name: '查看监控' }]);
+    setMetadata([{ code: 'system:user:update', name: '修改用户' }]);
 
     expect(guard.canActivate(createContext(undefined))).toBe(false);
     expect(guard.canActivate(createContext({}))).toBe(false);
@@ -74,14 +72,12 @@ describe('PermissionsGuard', () => {
 
   it('should pass when any of the required permissions matches', () => {
     setMetadata([
-      { code: 'system:monitor:view', name: '查看监控' },
-      { code: 'system:metrics:list', name: '查询指标' },
+      { code: 'system:user:update', name: '修改用户' },
+      { code: 'system:role:list', name: '查询角色' },
     ]);
 
     expect(
-      guard.canActivate(
-        createContext({ permissions: ['system:metrics:list'] }),
-      ),
+      guard.canActivate(createContext({ permissions: ['system:role:list'] })),
     ).toBe(true);
   });
 

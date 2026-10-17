@@ -21,12 +21,7 @@ const METHOD_TO_OPERATION_TYPE: Record<string, OperationType> = {
   DELETE: OperationType.DELETE,
 };
 
-export const EXCLUDE_PATHS = [
-  '/health',
-  '/metrics',
-  '/api-docs',
-  '/api/auth/refresh',
-];
+export const EXCLUDE_PATHS = ['/health', '/api-docs', '/api/auth/refresh'];
 
 export function resolveModuleName(path: string): string {
   for (const [prefix, name] of Object.entries(MODULE_NAMES)) {

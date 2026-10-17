@@ -585,28 +585,6 @@ model DictItem {
 }
 
 /**
- * 前端客户端事件(错误监控/访问埋点)
- * 由前端 monitor 模块批量上报
- */
-model ClientEvent {
-  id        Int      @id @default(autoincrement()) // 主键，自增ID
-  type      String // 事件类型: error | pageview
-  category  String? // 分类: JS_ERROR | UNHANDLED_REJECTION | VUE_ERROR | ROUTE_CHANGE
-  message   String? @db.Text // 错误消息/页面标题(截断至 500,超过 VARCHAR(191) 容量故用 TEXT)
-  stack     String? @db.Text // 错误堆栈(截断后)
-  url       String? @db.Text // 发生时的页面 URL
-  route     String? // 路由路径
-  userId    Int? @map("user_id") // 上报用户
-  browser   String? // 浏览器标识(截断)
-  extra     Json? // 附加信息
-  createdTime DateTime @default(now()) @map("created_time") // 上报时间
-
-  @@index([type, createdTime])
-  @@index([category, createdTime])
-  @@map("client_event")
-}
-
-/**
  * 用户登录会话
  * 登录时创建,刷新令牌轮换时更新,登出/强制下线时删除
  */

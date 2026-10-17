@@ -85,9 +85,8 @@ describe('DashboardService', () => {
 
   describe('getTrends', () => {
     it('should aggregate via parameterized SQL and fill missing days with 0', async () => {
-      // Promise.all 中的调用顺序:visits(ClientEvent) → operations → newUsers
+      // Promise.all 中的调用顺序:operations → newUsers
       (prisma.$queryRaw as jest.Mock)
-        .mockResolvedValueOnce([{ day: dayKey(0), cnt: 3n }])
         .mockResolvedValueOnce([{ day: dayKey(4), cnt: 2n }])
         .mockResolvedValueOnce([{ day: dayKey(6), cnt: 1n }]);
 
@@ -96,8 +95,6 @@ describe('DashboardService', () => {
       expect(trends.dates).toHaveLength(7);
       expect(trends.dates[0]).toBe(dayKey(6));
       expect(trends.dates[6]).toBe(dayKey(0));
-      // visits: 仅最后一天有 3 次 pageview,其余补 0
-      expect(trends.visits).toEqual([0, 0, 0, 0, 0, 0, 3]);
       // operations: dayKey(4) 对应下标 2
       expect(trends.operations).toEqual([0, 0, 2, 0, 0, 0, 0]);
       // newUsers: dayKey(6) 对应下标 0
@@ -105,7 +102,7 @@ describe('DashboardService', () => {
 
       // 参数化:每条 SQL 的日期阈值都应是绑定参数(Date),而非拼接字符串
       const calls = (prisma.$queryRaw as jest.Mock).mock.calls;
-      expect(calls).toHaveLength(3);
+      expect(calls).toHaveLength(2);
       for (const call of calls) {
         const sql = call[0] as { values: unknown[] };
         expect(sql.values).toHaveLength(1);
@@ -113,21 +110,22 @@ describe('DashboardService', () => {
       }
     });
 
-    it('should query pageview events and operation logs from distinct sources', async () => {
+    it('should aggregate only from operation logs and users', async () => {
       (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
       (prisma.$queryRaw as jest.Mock)
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
-      await service.getTrends(7);
+      const trends = await service.getTrends(7);
 
       const queries = (prisma.$queryRaw as jest.Mock).mock.calls.map((call) =>
         String((call[0] as { text?: string }).text ?? ''),
       );
-      expect(queries.some((q) => q.includes('client_event'))).toBe(true);
       expect(queries.some((q) => q.includes('operation_log'))).toBe(true);
-      expect(queries.some((q) => q.includes("'pageview'"))).toBe(true);
+      expect(queries.some((q) => q.includes('FROM user'))).toBe(true);
+      // 前端监控模块下线后不再查询 pageview 事件
+      expect(queries.some((q) => q.includes('client_event'))).toBe(false);
+      expect(trends).not.toHaveProperty('visits');
     });
   });
 
