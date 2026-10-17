@@ -14,7 +14,7 @@
 - [4. 角色管理](#4-角色管理)
 - [5. 菜单管理](#5-菜单管理)
 - [6. 部门管理](#6-部门管理)
-- [7. 系统配置](#7-系统配置)
+- [7. 系统设置](#7-系统设置)
 - [8. 操作日志](#8-操作日志)
 - [9. 文件上传](#9-文件上传)
 - [10. 公共接口](#10-公共接口)
@@ -444,6 +444,50 @@ POST /api/auth/user/updatePassword
 |--------|------|
 | 400 | 原密码错误 |
 | 404 | 用户不存在 |
+
+### 2.10 解除账号的登录失败锁定
+
+运营在用户管理页点击「解锁登录」时调用。登录失败限流状态存放在 `LoginGuardService`
+的内存里（`用户名:IP` 维度 + 独立于 IP 的用户名全局维度），锁定窗口到期前用户无法自助恢复，
+这里提供立即放行入口。
+
+**请求**：
+
+```http
+PUT /api/auth/unlock
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "username": "zhangsan"
+}
+```
+
+**权限**：`system:user:update`
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "username": "zhangsan",
+    "cleared": 2
+  }
+}
+```
+
+`cleared` 是实际清掉的计数条目数（IP 维度 + 全局维度合计），为 `0` 表示该账号当前未被锁定。
+
+**错误响应**：
+
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 用户名缺失或超长 |
+| 403 | 无 `system:user:update` 权限 |
+
+> 注意：限流计数保存在进程内存中，多实例部署时只会解锁当前实例的计数；重启进程同样会清空。
 
 ---
 
@@ -1647,31 +1691,34 @@ PUT /api/system/department/disable/:id
 
 ---
 
-## 7. 系统配置
+## 7. 系统设置
 
-> 前缀：`/api/system/config`  
-> 所有接口需要 JWT 认证 + 权限码（`public` 除外）
+> 前缀：`/api/system/settings`
+>
+> 设置项的**默认值、类型、分组、可见性、消费方**统一声明在后端代码注册表
+> （`src/modules/settings/registry`），数据库只存"被改过的值"（`setting_override`）。
+> 因此没有"新增/删除设置"接口：**加一项设置 = 改注册表 + 发版**，
+> 前端设置页按注册表元数据自动渲染，无需改动。
 
-### 7.1 获取系统配置列表
+**权限**：`system:setting:list`（查看）、`system:setting:update`（修改/重置）、`system:setting:rollback`（回滚）
+
+**来源与可见性**：
+
+| 概念 | 取值 | 说明 |
+|------|------|------|
+| `source` | `default` / `db` / `env` | 注册表默认值 / 数据库覆盖值 / 环境变量 |
+| `expose` | `public` / `admin` / `secret` | 匿名白名单 / 仅后台 / 永不回传（值只走环境变量） |
+| `type` | `string` / `number` / `boolean` / `json` / `string[]` / `color` / `url` / `email` / `select` | 决定 DB 序列化方式与前端控件 |
+
+### 7.1 获取公开设置（白名单）
 
 ```
-GET /api/system/config/list
+GET /api/system/settings/public
 ```
 
-**权限**：`system:config:list`
+**权限**：匿名可读（`@Public()`）
 
-**查询参数**（所有可选）：
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `page` | number | 1 | 页码 |
-| `pageSize` | number | 10 | 每页数量 |
-| `name` | string | - | 配置名称（模糊搜索） |
-| `key` | string | - | 配置键（模糊搜索） |
-| `type` | string | - | 配置类型 |
-| `category` | string | - | 配置分类 |
-| `isPublic` | boolean | - | 是否公开 |
-| `isSystem` | boolean | - | 是否系统配置 |
+**说明**：只返回注册表里 `expose=public` 的项，登录页/布局品牌位使用；`secret` 项永不回传。
 
 **响应** (200)：
 
@@ -1680,86 +1727,69 @@ GET /api/system/config/list
   "code": 200,
   "message": "操作成功",
   "data": {
-    "list": [
-      {
-        "id": 1,
-        "name": "站点名称",
-        "key": "site_name",
-        "value": "JDM管理系统",
-        "type": "STRING",
-        "description": "站点名称",
-        "category": "SYSTEM",
-        "isPublic": true,
-        "isSystem": false,
-        "sortOrder": 1,
-        "createdTime": "2026-01-01T00:00:00.000Z",
-        "updatedTime": null
-      }
-    ],
-    "total": 20,
-    "page": 1,
-    "pageSize": 10
+    "site.name": "Jay Admin",
+    "site.description": "基于 NestJS 与 Vue3 的现代化管理系统",
+    "site.copyright": "© 2026 Jay Admin. All rights reserved.",
+    "site.primaryColor": "#1890ff"
   }
 }
 ```
 
----
-
-### 7.2 获取系统配置详情
+### 7.2 获取设置注册表元数据
 
 ```
-GET /api/system/config/detail/:id
+GET /api/system/settings/schema
 ```
 
-**权限**：`system:config:list`
+**权限**：`system:setting:list`
 
----
-
-### 7.3 根据键获取系统配置
-
-```
-GET /api/system/config/key/:key
-```
-
-**权限**：`system:config:list`
-
-**路径参数**：
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `key` | string | 配置键名 |
-
-**错误响应**：
-
-| 状态码 | 说明 |
-|--------|------|
-| 404 | 配置键不存在 |
-
----
-
-### 7.4 根据分类获取系统配置
-
-```
-GET /api/system/config/category/:category
-```
-
-**权限**：`system:config:list`
-
-**响应** (200)：返回该分类下所有配置列表
-
----
-
-### 7.5 获取公开配置
-
-```
-GET /api/system/config/public
-```
-
-**认证**：无需认证（`@Public`）
-
-**说明**：返回所有 `isPublic=true` 的配置项。
+**说明**：返回分组与每项的渲染元数据（控件类型、约束、默认值、是否只读），设置页据此自动渲染。
 
 **响应** (200)：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "groups": [
+      {
+        "group": "站点",
+        "items": [
+          {
+            "key": "site.name",
+            "label": "站点名称",
+            "type": "string",
+            "description": "登录页与侧边栏展示的系统名称",
+            "expose": "public",
+            "source": "db",
+            "readonly": false,
+            "default": "Jay Admin",
+            "order": 1
+          }
+        ]
+      }
+    ],
+    "revision": 3
+  }
+}
+```
+
+### 7.3 获取设置列表
+
+```
+GET /api/system/settings?group=站点
+```
+
+**权限**：`system:setting:list`
+
+**查询参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `group` | string | 否 | 按分组过滤，如 `站点` / `安全` |
+
+**响应** (200)：数组，每项为设置项的**生效值**（已按类型解析，不是字符串）
 
 ```json
 {
@@ -1767,137 +1797,131 @@ GET /api/system/config/public
   "message": "操作成功",
   "data": [
     {
-      "id": 1,
-      "name": "站点名称",
-      "key": "site_name",
-      "value": "JDM管理系统",
-      "type": "STRING",
-      "description": null,
-      "category": "SYSTEM",
-      "isPublic": true,
-      "isSystem": false,
-      "sortOrder": 1,
-      "createdTime": "2026-01-01T00:00:00.000Z",
-      "updatedTime": null
+      "key": "site.name",
+      "label": "站点名称",
+      "group": "站点",
+      "type": "string",
+      "expose": "public",
+      "source": "db",
+      "readonly": false,
+      "overridden": true,
+      "value": "Jay Admin",
+      "configured": true,
+      "defaultValue": "Jay Admin",
+      "version": 2,
+      "updatedBy": 1,
+      "updatedName": "admin",
+      "updatedTime": "2026-10-16T06:29:33.000Z",
+      "invalid": false
     }
   ]
 }
 ```
 
----
+**字段说明**：
 
-### 7.6 创建系统配置
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `source` | string | `default`（用默认值）/ `db`（有覆盖值）/ `env`（环境变量提供） |
+| `overridden` | boolean | 是否存在数据库覆盖值 |
+| `readonly` | boolean | `source=env` 的项只读 |
+| `configured` | boolean | `expose=secret` 时表示是否已配置（`value` 恒为 null） |
+| `version` | number | 覆盖值版本号，用于乐观锁；无覆盖值为 `0` |
+| `invalid` | boolean | 覆盖值解析/校验失败，已回退默认值（启动校验会告警） |
+
+### 7.4 修改设置
 
 ```
-POST /api/system/config/create
+PUT /api/system/settings/:key
 ```
 
-**权限**：`system:config:create`
+**权限**：`system:setting:update`
+
+**路径参数**：`key` 为注册表声明的键，如 `site.name`（未声明返回 404，`source=env` 的项返回 400）
 
 **请求体**：
 
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `name` | string | 是 | - | 配置名称（1-100字符） |
-| `key` | string | 是 | - | 配置键（1-100字符） |
-| `value` | string | 是 | - | 配置值 |
-| `type` | string | 否 | `STRING` | 配置类型：`STRING`/`NUMBER`/`BOOLEAN`/`JSON` 等 |
-| `description` | string | 否 | - | 描述 |
-| `category` | string | 否 | `SYSTEM` | 分类 |
-| `isPublic` | boolean | 否 | `false` | 是否公开 |
-| `isSystem` | boolean | 否 | `false` | 是否系统配置 |
-| `sortOrder` | number | 否 | `0` | 排序 |
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `value` | any | 是 | 设置值，具体类型由注册表声明决定（字符串/数字/布尔/对象/数组） |
+| `expectedVersion` | number | 否 | 期望版本号（乐观锁）；与当前版本不一致返回 `409` |
+| `reason` | string | 否 | 变更原因，写入变更历史 |
 
-**错误响应**：
+**请求示例**：
+
+```json
+{
+  "value": "Jay Admin 2",
+  "expectedVersion": 2,
+  "reason": "调整品牌名"
+}
+```
+
+**响应** (200)：返回更新后的设置项（结构同 7.3）
+
+**错误**：
 
 | 状态码 | 说明 |
 |--------|------|
-| 400 | 配置键已存在 |
+| 400 | 值类型/范围校验失败（如颜色格式、数字超范围），或该项由环境变量管理 |
+| 404 | 设置未在注册表中声明 |
+| 409 | 该设置已被他人修改（版本冲突），需刷新后重试 |
 
----
+**说明**：写入会在同一事务里追加一条 `setting_history` 并递增 `setting_revision`（多实例缓存失效用）。
+操作日志只记录"谁在什么时候改了哪一项"，**不记录设置值**（值线索看变更历史；`secret` 项只落哈希）。
 
-### 7.7 更新系统配置
-
-```
-PUT /api/system/config/update
-```
-
-**权限**：`system:config:update`
-
-**请求体**：与创建相同字段（全部可选），额外必填 `id`。
-
----
-
-### 7.8 删除系统配置
+### 7.5 重置设置为默认值
 
 ```
-DELETE /api/system/config/delete/:id
+POST /api/system/settings/:key/reset
 ```
 
-**权限**：`system:config:delete`
-
-**说明**：系统配置（`isSystem=true`）无法删除。
-
-**错误响应**：
-
-| 状态码 | 说明 |
-|--------|------|
-| 400 | 系统配置无法删除 |
-| 404 | 配置不存在 |
-
----
-
-### 7.9 批量删除系统配置
-
-```
-PUT /api/system/config/batchDelete
-```
-
-**权限**：`system:config:delete`
+**权限**：`system:setting:update`
 
 **请求体**：
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `ids` | number[] | 是 | 配置ID数组 |
+| `expectedVersion` | number | 否 | 期望版本号（乐观锁） |
+| `reason` | string | 否 | 重置原因，默认"重置为默认值" |
 
-**说明**：如果包含系统配置，整个操作将被拒绝。
+**说明**：删除覆盖值，回落到注册表默认值；同时追加一条历史（`newValue` 为 `null`）。
 
----
+**响应** (200)：返回重置后的设置项（`source=default`、`version=0`）
 
-### 7.10 启用/禁用系统配置
+### 7.6 回滚某次修改
 
 ```
-PUT /api/system/config/status/:id
+POST /api/system/settings/:key/rollback
 ```
 
-**权限**：`system:config:update`
+**权限**：`system:setting:rollback`
 
 **请求体**：
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `status` | number | 是 | 0-禁用(设为非公开) 1-启用(设为公开) |
+| `version` | number | 是 | 要回滚的版本号（取自变更历史） |
+| `reason` | string | 否 | 回滚原因 |
 
-**说明**：实际上是修改 `isPublic` 字段。
+**说明**：回滚该版本引入的变更，即**恢复到该版本变更前的值**（取该条历史的 `oldValue`；
+`oldValue` 为 `null` 表示当时用的是注册表默认值，此时等价于重置）。
+回滚本身会追加一条历史（`source=rollback`），不删除任何历史记录。
 
----
+> 为什么不重放"变更后的值"：历史里最新一条的变更后值就是当前值，
+> 重放它等于什么都没做 —— 第一次修改后点回滚会"回滚成刚改的值"。
 
-### 7.11 校验密码
+**响应** (200)：返回回滚后的设置项（`source=default` 表示已回到默认值）
+
+**错误**：`404` 该版本不存在；`400` 历史值按当前声明校验不通过（例如声明收紧了范围）
+
+### 7.7 获取设置变更历史
 
 ```
-POST /api/system/config/validate-password
+GET /api/system/settings/:key/history?page=1&pageSize=10
 ```
 
-**权限**：`system:config:update`
-
-**请求体**：
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `password` | string | 是 | 待校验的密码 |
-
-**说明**：与环境变量 `DEFAULT_PASSWORD` 比对。
+**权限**：`system:setting:list`
 
 **响应** (200)：
 
@@ -1905,11 +1929,36 @@ POST /api/system/config/validate-password
 {
   "code": 200,
   "message": "操作成功",
-  "data": { "valid": true }
+  "data": {
+    "items": [
+      {
+        "id": 12,
+        "key": "site.name",
+        "oldValue": "Jay Admin",
+        "newValue": "Jay Admin 2",
+        "version": 2,
+        "source": "api",
+        "reason": "调整品牌名",
+        "changedBy": 1,
+        "changedName": "admin",
+        "changedTime": "2026-10-16T06:29:33.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 10
+  }
 }
 ```
 
----
+**字段说明**：`source` 取值 `api`（在线修改）/ `rollback`（回滚）/ `migration`（迁移导入）/ `seed`；`newValue` 为 `null` 表示重置为默认值。
+
+### 7.8 已退役的旧接口
+
+原 `/api/system/config/*`（列表/详情/按 key/按分类/公开/创建/更新/删除/批量删除/启停/校验密码）
+已随 `sys_config` 表一起下线，迁移见 `prisma/migrations/20261016130000_settings_refactor`。
+其中 6 项因**没有任何消费方**而退役：`maintenance_mode`、`page_size`、`max_file_size`、
+`default_language`，以及本就不属于设置的 `initialized`、`version`。
 
 ## 8. 操作日志
 
@@ -2171,7 +2220,7 @@ POST /api/public/sort
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `tableName` | string | 是 | 表名：`sysConfig`/`user`/`role`/`department`/`menu`/`navigation`/`navigationGroup`/`notice`/`todo`/`operationLog` |
+| `tableName` | string | 是 | 表名：`user`/`role`/`department`/`menu`/`navigation`/`navigationGroup`/`notice`/`todo`/`operationLog` |
 | `id` | number | 是 | 记录ID |
 | `targetId` | string | 否 | 目标记录ID（`before`/`after` 位置时必填） |
 | `position` | string | 否 | 位置：`before`/`after`/`first`/`last`，默认 `after` |
@@ -2246,16 +2295,6 @@ POST /api/public/resetSort
 | `FEMALE` | 女 |
 | `OTHER` | 其他 |
 
-### ConfigType（配置类型）
-
-| 值 | 说明 |
-|----|------|
-| `STRING` | 字符串 |
-| `NUMBER` | 数字 |
-| `BOOLEAN` | 布尔 |
-| `JSON` | JSON |
-| `DATE` | 日期 |
-| `TEXT` | 文本 |
 
 ### OperationType（操作类型）
 

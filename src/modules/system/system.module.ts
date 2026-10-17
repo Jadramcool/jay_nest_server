@@ -3,7 +3,7 @@ import { UserModule } from './user/user.module';
 import { RoleModule } from './role/role.module';
 import { MenuModule } from './menu/menu.module';
 import { DepartmentModule } from './department/department.module';
-import { SysConfigModule } from './sys-config/sys-config.module';
+import { SettingsModule } from '../settings/settings.module';
 import { OperationLogModule } from './operation-log/operation-log.module';
 import { DictModule } from './dict/dict.module';
 import { PermissionModule } from './permission/permission.module';
@@ -14,7 +14,7 @@ import { PermissionModule } from './permission/permission.module';
     RoleModule,
     MenuModule,
     DepartmentModule,
-    SysConfigModule,
+    SettingsModule,
     OperationLogModule,
     DictModule,
     PermissionModule,
@@ -24,7 +24,7 @@ import { PermissionModule } from './permission/permission.module';
     RoleModule,
     MenuModule,
     DepartmentModule,
-    SysConfigModule,
+    SettingsModule,
     OperationLogModule,
     DictModule,
     PermissionModule,

@@ -6,7 +6,7 @@ const MODULE_NAMES: Record<string, string> = {
   '/api/system/role': '角色管理',
   '/api/system/menu': '菜单管理',
   '/api/system/department': '部门管理',
-  '/api/system/config': '系统配置',
+  '/api/system/settings': '系统设置',
   '/api/system/operation-log': '操作日志',
   '/api/notice': '公告管理',
   '/api/upload': '文件上传',

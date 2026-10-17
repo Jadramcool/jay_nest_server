@@ -13,5 +13,4 @@ export * as Menu from './menu';
 export * as Notice from './notice';
 export * as OperationLog from './operationLog';
 export * as Role from './role';
-export * as SysConfig from './sysConfig';
 export * as User from './user';

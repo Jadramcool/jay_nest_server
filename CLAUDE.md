@@ -91,12 +91,13 @@ src/
 │   │   ├── role/        # CRUD + 菜单权限分配
 │   │   ├── menu/        # 菜单树 + CRUD
 │   │   ├── department/  # 部门层级树 + CRUD
-│   │   ├── sys-config/  # 系统配置(key-value 多类型存储)
 │   │   └── operation-log/ # 操作日志查询
+│   ├── settings/        # 系统设置(代码注册表 + 覆盖值/历史/回滚)
+│   ├── maintenance/     # 保留期清理(临时文件/公告/操作日志,读设置 + 每日调度)
 │   ├── upload/          # 阿里云 OSS 文件上传(multer + ali-oss)
 │   └── public/          # 泛型拖拽排序 & 重置排序(任意 Prisma 模型)
 prisma/
-├── schema.prisma        # 15个模型, 5个枚举, MySQL数据源
+├── schema.prisma        # 17个模型, 4个枚举, MySQL数据源
 ├── seed.ts              # 种子数据入口
 └── initData/            # 按模型拆分的初始化数据
 ```
@@ -112,8 +113,8 @@ prisma/
 ## Database
 
 - MySQL + Prisma ORM，使用 `@prisma/adapter-mariadb` 驱动
-- 15 个模型：User、Department、Role、Menu、RoleMenu、UserRole、RoleDepartment、SysConfig、OperationLog、Notice、UserNotice、Todo、Navigation、NavigationGroup、NavigationGroupNavigation
-- 5 个枚举：ConfigType (STRING/NUMBER/BOOLEAN/JSON/ARRAY/FILE/EMAIL/URL/PASSWORD)、Sex (MALE/FEMALE/OTHER)、NoticeType (NOTICE/INFO/ACTIVITY)、OperationType (CREATE/UPDATE/DELETE/VIEW/LOGIN/LOGOUT/EXPORT/IMPORT/OTHER)、OperationStatus (SUCCESS/FAILED/PENDING)
+- 17 个模型：User、Department、Role、Menu、RoleMenu、UserRole、RoleDepartment、SettingOverride、SettingHistory、SettingRevision、OperationLog、Notice、UserNotice、Todo、Navigation、NavigationGroup、NavigationGroupNavigation
+- 4 个枚举：Sex (MALE/FEMALE/OTHER)、NoticeType (NOTICE/INFO/ACTIVITY)、OperationType (CREATE/UPDATE/DELETE/VIEW/LOGIN/LOGOUT/EXPORT/IMPORT/OTHER)、OperationStatus (SUCCESS/FAILED/PENDING)
 - 软删除模型使用 `isDeleted: Boolean` + `deletedTime: DateTime?`
 - 多对多关联表（RoleMenu、UserRole、RoleDepartment、UserNotice、NavigationGroupNavigation）使用复合唯一索引避免重复
 

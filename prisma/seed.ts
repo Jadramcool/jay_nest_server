@@ -17,7 +17,6 @@ import {
   Notice,
   OperationLog,
   Role,
-  SysConfig,
   User,
 } from './initData';
 
@@ -32,30 +31,6 @@ if (process.env.DATABASE_URL) {
 
 const adapter = new PrismaMariaDb(connectionUrl.toString());
 const prisma = new PrismaClient({ adapter });
-
-/**
- * 初始化系统配置数据
- *
- * 按 key 增量补充缺失配置(幂等,不改动已存在的配置)
- * 站点名称、描述、版权信息、登录防护参数等基础配置项
- */
-const initConfigData = async () => {
-  const existing = await prisma.sysConfig.findMany({ select: { key: true } });
-  const existingKeys = new Set(existing.map((config) => config.key));
-  const missing = SysConfig.sysConfigs.filter(
-    (config) => !existingKeys.has(config.key),
-  );
-
-  if (missing.length > 0) {
-    await prisma.sysConfig.createMany({
-      data: missing,
-      skipDuplicates: true,
-    });
-    console.log(`系统配置数据初始化完成(新增 ${missing.length} 条)`);
-  } else {
-    console.log('系统配置数据已存在，跳过初始化');
-  }
-};
 
 /**
  * 初始化菜单数据
@@ -324,8 +299,7 @@ const main = async () => {
   console.log('开始初始化数据库数据...');
 
   // 按依赖顺序初始化数据
-  await initConfigData(); // 1. 系统配置
-  await initRoles(); // 2. 角色数据
+  await initRoles(); // 1. 角色数据
   await initUsers(); // 3. 用户数据
   await initMenus(); // 4. 菜单数据
   await initDepartments(); // 5. 部门数据

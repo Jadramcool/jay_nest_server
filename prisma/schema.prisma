@@ -12,27 +12,56 @@ datasource db {
  * 系统配置表
  * 用于存储系统级别的配置信息，支持多种数据类型
  */
-model SysConfig {
-  id          Int        @id @default(autoincrement()) // 主键，自增ID
-  description String? // 配置描述
-  createdTime DateTime   @default(now()) @map("created_time") // 创建时间
-  updatedTime DateTime   @updatedAt @map("updated_time") // 更新时间
-  category    String?    @default("SYSTEM") // 配置分类，默认为SYSTEM
-  key         String     @unique(map: "sys_config_config_key_key") // 配置键，唯一
-  value       String? // 配置值
-  isPublic    Boolean    @default(false) @map("is_public") // 是否公开配置
-  isSystem    Boolean    @default(false) @map("is_system") // 是否系统配置
-  sortOrder   Int?       @default(0) @map("sort_order") // 排序顺序
-  type        ConfigType @default(STRING) // 配置类型
-  name        String? // 配置名称
-
-  @@map("sys_config")
-}
-
 /**
  * 用户表
  * 存储系统用户的基本信息和关联关系
  */
+model SettingOverride {
+  key         String   @id @db.VarChar(191) // 注册表 key,如 site.name
+  value       String?  @db.Text // 序列化后的值
+  version     Int      @default(1) // 乐观锁版本 + 回滚定位
+  updatedBy   Int?     @map("updated_by") // 最后修改人 ID
+  updatedName String?  @map("updated_name") @db.VarChar(64) // 修改人快照
+  createdTime DateTime @default(now()) @map("created_time")
+  updatedTime DateTime @updatedAt @map("updated_time")
+
+  @@map("setting_override")
+}
+
+/**
+ * 设置变更历史表
+ *
+ * 每次 set/reset/rollback 写一条,支持审计与回滚。
+ * expose=secret 的设置只存哈希,不落明文。
+ */
+model SettingHistory {
+  id          Int      @id @default(autoincrement())
+  key         String   @db.VarChar(191) // 设置 key
+  oldValue    String?  @map("old_value") @db.Text // 变更前(默认值用 null 表示)
+  newValue    String?  @map("new_value") @db.Text // 变更后
+  version     Int // 变更后的版本号
+  source      String   @db.VarChar(16) // api | seed | rollback
+  reason      String?  @db.VarChar(255) // 变更原因
+  changedBy   Int?     @map("changed_by")
+  changedName String?  @map("changed_name") @db.VarChar(64)
+  changedTime DateTime @default(now()) @map("changed_time")
+
+  @@index([key, changedTime(sort: Desc)])
+  @@map("setting_history")
+}
+
+/**
+ * 设置修订号表(单行)
+ *
+ * 多实例部署时用它做缓存失效:写入递增,各实例按 TTL 校验后整体失效。
+ */
+model SettingRevision {
+  id       Int    @id @default(1)
+  revision BigInt @default(1) // 修订号
+
+  @@map("setting_revision")
+}
+
 model User {
   id            Int       @id @default(autoincrement()) // 主键，自增ID
   username      String    @unique // 用户名，唯一
@@ -469,18 +498,6 @@ model NavigationGroupNavigation {
  * 配置类型枚举
  * 定义系统配置支持的数据类型
  */
-enum ConfigType {
-  STRING // 字符串类型
-  NUMBER // 数字类型
-  BOOLEAN // 布尔类型
-  JSON // JSON对象类型
-  ARRAY // 数组类型
-  FILE // 文件类型
-  EMAIL // 邮箱类型
-  URL // URL类型
-  PASSWORD // 密码类型
-}
-
 /**
  * 性别枚举
  */

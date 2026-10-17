@@ -12,7 +12,6 @@ prisma/
 │   ├── menu.ts        # 菜单数据
 │   ├── operationLog.ts # 操作日志数据
 │   ├── role.ts        # 角色数据
-│   ├── sysConfig.ts   # 系统配置数据
 │   └── user.ts        # 用户数据
 ├── migrations/         # 数据库迁移文件
 ├── schema.prisma      # Prisma 模式文件
@@ -80,7 +79,7 @@ npx prisma db seed
 - **Department**: 部门信息
 - **Role**: 角色权限
 - **Menu**: 菜单配置
-- **SysConfig**: 系统配置
+- **SettingOverride / SettingHistory / SettingRevision**: 系统设置覆盖值、变更历史、修订号（默认值与类型声明在 `src/modules/settings/registry`）
 - **OperationLog**: 操作日志
 
 详细的模型定义请查看 `schema.prisma` 文件。

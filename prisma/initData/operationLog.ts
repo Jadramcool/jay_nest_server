@@ -77,22 +77,22 @@ export const operationLogInitData: ICreateOperationLog[] = [
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     duration: 234,
   },
-  // 更新系统配置
+  // 更新系统设置
   {
     userId: 1,
     username: 'admin',
     operationType: OperationType.UPDATE,
-    module: '系统配置',
-    description: '更新系统配置',
+    module: '系统设置',
+    description: '更新系统设置',
     method: 'PUT',
-    url: '/api/system/config/update',
+    url: '/api/system/settings/site.name',
     params: JSON.stringify({
-      key: 'site_name',
-      value: 'JDM管理系统',
+      key: 'site.name',
+      value: 'Jay Admin',
     }),
     result: JSON.stringify({
       success: true,
-      message: '配置更新成功',
+      message: '设置更新成功',
     }),
     status: OperationStatus.SUCCESS,
     ipAddress: '127.0.0.1',
