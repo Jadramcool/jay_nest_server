@@ -11,6 +11,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import * as path from 'path';
 import { getAllowedOrigins } from './common/utils/cors.util';
+import { buildValidationException } from './common/utils/validation-error.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,6 +30,8 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true,
       },
+      // 字段级校验错误透出给前端(否则只看到一句「参数验证失败」)
+      exceptionFactory: (errors) => buildValidationException(errors),
     }),
   );
 

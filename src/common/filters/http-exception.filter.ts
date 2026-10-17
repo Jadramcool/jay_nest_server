@@ -6,12 +6,14 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
+import type { FieldError } from '../utils/validation-error.util';
 
 interface ExceptionResponse {
   code?: number;
   message?: string | string[];
   errorCode?: string;
   details?: unknown;
+  fieldErrors?: FieldError[];
 }
 
 @Catch()
@@ -26,6 +28,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message = '服务器内部错误';
     let errorCode = 'INTERNAL_SERVER_ERROR';
     let details: unknown = null;
+    let fieldErrors: FieldError[] | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -42,8 +45,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
         errorCode = responseObj.errorCode || exception.constructor.name;
         details = responseObj.details || null;
+        fieldErrors = Array.isArray(responseObj.fieldErrors)
+          ? responseObj.fieldErrors
+          : undefined;
 
-        // 处理验证错误
+        // 兜底:仍有个别路径直接抛字符串数组形式的校验错误
         if (Array.isArray(responseObj.message)) {
           message = '参数验证失败';
           details = responseObj.message;
@@ -60,6 +66,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       errMsg: errorCode,
       data: details,
+      fieldErrors,
       timestamp: new Date().toISOString(),
       path: request.url,
     });

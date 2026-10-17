@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { QueryBoolean } from '@/common/decorators';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 export class QueryRoleDto extends PaginationDto {
@@ -19,7 +20,6 @@ export class QueryRoleDto extends PaginationDto {
   platform?: string;
 
   @ApiPropertyOptional({ description: '是否包含已删除角色' })
-  @IsOptional()
-  @IsBoolean()
+  @QueryBoolean()
   includeDeleted?: boolean = false;
 }

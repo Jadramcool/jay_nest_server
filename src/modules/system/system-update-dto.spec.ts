@@ -2,10 +2,10 @@ import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { RoleController } from './role/role.controller';
 import { UserController } from './user/user.controller';
-import { SysConfigController } from './sys-config/sys-config.controller';
+import { SettingsController } from '@/modules/settings/settings.controller';
 import { UpdateRoleWithIdDto } from './role/dto';
 import { UpdateUserWithIdDto } from './user/dto';
-import { UpdateSysConfigWithIdDto } from './sys-config/dto';
+import { UpdateSettingDto } from '@/modules/settings/dto';
 
 // 与 main.ts 全局管道配置保持一致。注意 ValidationPipe.transform 是异步的，
 // 断言必须 await（否则 rejection 会变成 unhandled rejection 直接杀掉 worker）。
@@ -38,7 +38,7 @@ describe('system update 接口 DTO 元数据（防 ValidationPipe 绕过回归�
   it.each<[string, ClassRef, ClassRef]>([
     ['RoleController', RoleController, UpdateRoleWithIdDto],
     ['UserController', UserController, UpdateUserWithIdDto],
-    ['SysConfigController', SysConfigController, UpdateSysConfigWithIdDto],
+    ['SettingsController', SettingsController, UpdateSettingDto],
   ])(
     '%s 的 update 参数元数据必须包含真实 DTO 类而不是 Object',
     (_name, controller, dto) => {
@@ -75,11 +75,16 @@ describe('system update 接口 DTO 元数据（防 ValidationPipe 绕过回归�
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('isSystem 已从系统配置更新白名单中移除', async () => {
+  it('设置更新只接受 UpdateSettingDto 声明的字段', async () => {
+    // value 必须存在
+    await expect(
+      pipe.transform({}, { type: 'body', metatype: UpdateSettingDto }),
+    ).rejects.toThrow(BadRequestException);
+    // 未声明字段(如直接改 isPublic/来源)被拒
     await expect(
       pipe.transform(
-        { id: 1, isSystem: false },
-        { type: 'body', metatype: UpdateSysConfigWithIdDto },
+        { value: 'x', isPublic: true },
+        { type: 'body', metatype: UpdateSettingDto },
       ),
     ).rejects.toThrow(BadRequestException);
   });

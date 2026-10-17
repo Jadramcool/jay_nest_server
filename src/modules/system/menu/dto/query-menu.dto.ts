@@ -1,13 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsInt,
-  IsString,
-  IsBoolean,
-  IsEnum,
-} from 'class-validator';
+import { IsOptional, IsInt, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MenuType } from '@prisma/client';
+import { QueryBoolean } from '@/common/decorators';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 export class QueryMenuDto extends PaginationDto {
@@ -43,12 +38,10 @@ export class QueryMenuDto extends PaginationDto {
   pid?: number;
 
   @ApiPropertyOptional({ description: '是否显示' })
-  @IsOptional()
-  @IsBoolean()
+  @QueryBoolean()
   show?: boolean;
 
   @ApiPropertyOptional({ description: '是否启用' })
-  @IsOptional()
-  @IsBoolean()
+  @QueryBoolean()
   enable?: boolean;
 }

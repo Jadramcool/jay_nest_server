@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { buildValidationException } from '../utils/validation-error.util';
 import type { Type } from '@nestjs/common';
 
 /**
@@ -52,10 +53,7 @@ export const QueryWithOps: <T>(dtoType: Type<T>) => ParameterDecorator =
         forbidNonWhitelisted: true,
       });
       if (errors.length > 0) {
-        const messages = errors.flatMap((e) =>
-          Object.values(e.constraints ?? {}),
-        );
-        throw new BadRequestException(messages);
+        throw buildValidationException(errors);
       }
 
       return { ...dto, ...ops };

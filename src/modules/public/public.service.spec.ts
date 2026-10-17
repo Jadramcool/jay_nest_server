@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
-import { PublicService } from './public.service';
+import { PublicService, TABLE_SORT_CONFIG } from './public.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
 describe('PublicService', () => {
@@ -22,7 +22,6 @@ describe('PublicService', () => {
           provide: PrismaService,
           useValue: {
             $transaction: jest.fn((cb: unknown) => cb),
-            sysConfig: mockModel,
             department: mockModel,
           },
         },
@@ -55,7 +54,7 @@ describe('PublicService', () => {
       mockModel.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.sort({ tableName: 'sysConfig', id: 999 }),
+        service.sort({ tableName: 'department', id: 999 }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -64,7 +63,7 @@ describe('PublicService', () => {
       mockModel.findFirst.mockResolvedValue({ id: 1, sortOrder: 10 });
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 3,
         position: 'first',
       });
@@ -81,7 +80,7 @@ describe('PublicService', () => {
       mockModel.findFirst.mockResolvedValue({ id: 3, sortOrder: 30 });
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 1,
         position: 'last',
       });
@@ -96,7 +95,7 @@ describe('PublicService', () => {
       mockModel.findFirst.mockResolvedValue(null); // nothing before target
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 3,
         position: 'before',
         targetId: 1,
@@ -112,7 +111,7 @@ describe('PublicService', () => {
       mockModel.findFirst.mockResolvedValue(null); // nothing after target
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 1,
         position: 'after',
         targetId: 3,
@@ -128,7 +127,7 @@ describe('PublicService', () => {
       mockModel.findFirst.mockResolvedValue({ id: 3, sortOrder: 30 }); // record after target
 
       const result = await service.sort({
-        tableName: 'sysConfig',
+        tableName: 'department',
         id: 2,
         position: 'after',
         targetId: 1,
@@ -141,7 +140,7 @@ describe('PublicService', () => {
       mockModel.findUnique.mockResolvedValue({ id: 1, sortOrder: 10 });
 
       await expect(
-        service.sort({ tableName: 'sysConfig', id: 1, position: 'before' }),
+        service.sort({ tableName: 'department', id: 1, position: 'before' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -166,25 +165,39 @@ describe('PublicService', () => {
     });
 
     it('should throw for parent field not in table whitelist', async () => {
+      // 平表没有任何层级字段 → 传任何 parentIdField 都应被拒
+      TABLE_SORT_CONFIG.flatTest = {
+        model: 'department',
+        permission: 'system:department:update',
+        parentFields: [],
+      };
       await expect(
         service.sort({
-          tableName: 'sysConfig',
+          tableName: 'flatTest',
           id: 1,
           parentIdField: 'parentId',
         }),
       ).rejects.toThrow(BadRequestException);
       await expect(
         service.sort({
-          tableName: 'department',
+          tableName: 'flatTest',
           id: 1,
           parentIdField: 'managerId',
         }),
       ).rejects.toThrow(BadRequestException);
+      delete TABLE_SORT_CONFIG.flatTest;
     });
   });
 
   describe('resetSort', () => {
     it('should reset sort orders sequentially for flat table', async () => {
+      // 平表分支:原先用 sysConfig 覆盖,该表已随设置重构移除,
+      // 这里注册一个测试专用平表,避免为了测试保留生产白名单里的死配置
+      TABLE_SORT_CONFIG.flatTest = {
+        model: 'department',
+        permission: 'system:department:update',
+        parentFields: [],
+      };
       mockModel.findMany.mockResolvedValue([
         { id: 1, sortOrder: 100 },
         { id: 2, sortOrder: 50 },
@@ -194,7 +207,8 @@ describe('PublicService', () => {
         Promise.all(updates),
       );
 
-      const result = await service.resetSort({ tableName: 'sysConfig' });
+      const result = await service.resetSort({ tableName: 'flatTest' });
+      delete TABLE_SORT_CONFIG.flatTest;
 
       expect(result).toEqual({ resetCount: 3 });
       expect(mockModel.update).toHaveBeenCalledTimes(3);

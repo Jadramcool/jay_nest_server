@@ -12,28 +12,28 @@ describe('assertTableSortAccess', () => {
   });
 
   it('rejects anonymous or permission-less users', () => {
-    expect(() => assertTableSortAccess('sysConfig')).toThrow(
+    expect(() => assertTableSortAccess('department')).toThrow(
       ForbiddenException,
     );
     expect(() =>
-      assertTableSortAccess('sysConfig', { permissions: [] }),
+      assertTableSortAccess('department', { permissions: [] }),
     ).toThrow(ForbiddenException);
     expect(() =>
-      assertTableSortAccess('sysConfig', {
-        permissions: ['system:config:list'],
+      assertTableSortAccess('department', {
+        permissions: ['system:user:list'],
       }),
     ).toThrow(ForbiddenException);
   });
 
   it('allows users holding the table update permission', () => {
     expect(() =>
-      assertTableSortAccess('sysConfig', {
-        permissions: ['system:config:update'],
+      assertTableSortAccess('department', {
+        permissions: ['system:department:update'],
       }),
     ).not.toThrow();
     expect(() =>
       assertTableSortAccess('department', {
-        permissions: ['system:department:update'],
+        permissions: ['system:department:update', 'system:user:list'],
       }),
     ).not.toThrow();
   });

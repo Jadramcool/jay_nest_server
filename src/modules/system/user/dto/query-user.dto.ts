@@ -1,13 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsInt,
-  IsString,
-  IsBoolean,
-  IsEnum,
-} from 'class-validator';
+import { IsOptional, IsInt, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Sex } from '@prisma/client';
+import { QueryBoolean } from '@/common/decorators';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 export class QueryUserDto extends PaginationDto {
@@ -49,8 +44,7 @@ export class QueryUserDto extends PaginationDto {
   roleType?: string;
 
   @ApiPropertyOptional({ description: '是否包含已删除用户' })
-  @IsOptional()
-  @IsBoolean()
+  @QueryBoolean()
   includeDeleted?: boolean = false;
 
   @ApiPropertyOptional({ description: '性别', enum: Sex })

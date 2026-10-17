@@ -4,3 +4,4 @@ export * from './current-user.decorator';
 export * from './permissions.decorator';
 export * from './platform.decorator';
 export * from './query-with-ops.decorator';
+export * from './query-boolean.decorator';

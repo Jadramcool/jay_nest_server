@@ -32,11 +32,6 @@ export const TABLE_SORT_CONFIG: Record<
   string,
   { model: keyof PrismaService; permission: string; parentFields: string[] }
 > = {
-  sysConfig: {
-    model: 'sysConfig',
-    permission: 'system:config:update',
-    parentFields: [],
-  },
   department: {
     model: 'department',
     permission: 'system:department:update',
