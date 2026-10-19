@@ -25,7 +25,7 @@ export const settings = {
   ...defineGroup({
     'site.name': {
       type: 'string',
-      default: 'JDM管理系统',
+      default: 'Jay Admin',
       label: '站点名称',
       group: '站点',
       description: '登录页与侧边栏展示的系统名称',
@@ -45,7 +45,7 @@ export const settings = {
     },
     'site.copyright': {
       type: 'string',
-      default: '© 2026 JDM System. All rights reserved.',
+      default: '© 2026 Jay Admin. All rights reserved.',
       label: '版权信息',
       group: '站点',
       description: '页脚版权文案',
