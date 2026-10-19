@@ -94,6 +94,7 @@ describe('AuthService', () => {
           provide: SessionService,
           useValue: {
             createSession: jest.fn(),
+            clearDuplicateSessions: jest.fn(),
             findValidSession: jest.fn(),
             rotateSession: jest.fn(),
             removeByRefreshToken: jest.fn(),
@@ -222,6 +223,31 @@ describe('AuthService', () => {
       expect(sessionService.createSession.mock.calls[0][0]).toEqual(
         expect.objectContaining({ userId: 1, refreshToken: 'mock-token' }),
       );
+    });
+
+    it('登录前清理同设备（同端 + 同 IP + 同 UA）的重复会话，且必须先清理再创建', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      prisma.userRole.count.mockResolvedValue(1);
+      jwtService.sign.mockReturnValue('mock-token');
+      sessionService.createSession.mockResolvedValue({ id: 1 });
+      sessionService.clearDuplicateSessions.mockResolvedValue(1);
+
+      await service.login('testuser', 'password123', {
+        ip: '10.0.0.1',
+        userAgent: 'UA-1',
+      });
+
+      expect(sessionService.clearDuplicateSessions).toHaveBeenCalledWith({
+        userId: 1,
+        platform: 'admin',
+        ipAddress: '10.0.0.1',
+        userAgent: 'UA-1',
+      });
+      // 顺序不能反：先清理再创建，否则会把刚建的会话删掉
+      expect(
+        sessionService.clearDuplicateSessions.mock.invocationCallOrder[0],
+      ).toBeLessThan(sessionService.createSession.mock.invocationCallOrder[0]);
     });
 
     it('should throw on invalid credentials', async () => {

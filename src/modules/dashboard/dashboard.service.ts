@@ -90,7 +90,7 @@ export class DashboardService {
       departmentCount,
       logCount,
       logTodayCount,
-      onlineCount: sessionStats.online,
+      onlineCount: sessionStats.onlineUsers,
     };
   }
 

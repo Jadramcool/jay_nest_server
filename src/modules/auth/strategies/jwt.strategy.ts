@@ -45,6 +45,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('登录状态已失效，请重新登录');
     }
 
+    // 活跃度回写：内部有 60s 节流，且失败只记日志，不影响本次请求
+    await this.sessionService.touchActivity(payload.jti);
+
     const platform = resolveClientPlatform(payload.platform);
     const platforms = visiblePlatforms(platform);
 
