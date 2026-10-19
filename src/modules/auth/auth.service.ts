@@ -197,6 +197,14 @@ export class AuthService {
     }
     const tokens = this.generateTokens(user, platform);
 
+    // 同一台机器反复登录会堆出设备指纹相同的重复会话：先清掉再建（顺序不能反）
+    await this.sessionService.clearDuplicateSessions({
+      userId: user.id,
+      platform,
+      ipAddress: req?.ip,
+      userAgent: req?.userAgent,
+    });
+
     // 创建登录会话(强制下线/在线列表依赖)
     await this.sessionService.createSession({
       userId: user.id,

@@ -25,7 +25,7 @@ export const settings = {
   ...defineGroup({
     'site.name': {
       type: 'string',
-      default: 'Jay Admin',
+      default: 'JDM管理系统',
       label: '站点名称',
       group: '站点',
       description: '登录页与侧边栏展示的系统名称',
@@ -45,7 +45,7 @@ export const settings = {
     },
     'site.copyright': {
       type: 'string',
-      default: '© 2026 Jay Admin. All rights reserved.',
+      default: '© 2026 JDM System. All rights reserved.',
       label: '版权信息',
       group: '站点',
       description: '页脚版权文案',
@@ -85,6 +85,18 @@ export const settings = {
       group: '安全',
       order: 2,
       consumer: 'api: login-guard.service',
+    },
+    'session.activeWindowMinutes': {
+      type: 'number',
+      default: 5,
+      min: 2,
+      max: 1440,
+      label: '在线判定窗口（分钟）',
+      group: '安全',
+      description:
+        '最近该时长内有过请求的会话才计为「在线」，超过则显示为「闲置」（会话本身仍有效，不算掉线）。活跃时间回写带 60s 节流，故不宜小于 2 分钟，否则状态会抖动',
+      order: 3,
+      consumer: 'api: session/session.service（在线统计与列表状态）',
     },
   }),
   ...defineGroup({

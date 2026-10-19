@@ -10,6 +10,8 @@ describe('JwtStrategy', () => {
   const findUnique = jest.fn();
   const menuFindMany = jest.fn();
   const roleMenuFindMany = jest.fn();
+  const isAccessRevoked = jest.fn(() => false);
+  const touchActivity = jest.fn();
   let strategy: JwtStrategy;
 
   beforeEach(() => {
@@ -26,7 +28,8 @@ describe('JwtStrategy', () => {
         roleMenu: { findMany: roleMenuFindMany },
       } as unknown as PrismaService,
       {
-        isAccessRevoked: jest.fn(() => false),
+        isAccessRevoked,
+        touchActivity,
       } as unknown as SessionService,
     );
   });
@@ -138,5 +141,40 @@ describe('JwtStrategy', () => {
       type: 'BUTTON',
       platform: { in: ['app', 'common'] },
     });
+  });
+
+  it('records activity for the presented jti', async () => {
+    findUnique.mockResolvedValue({
+      id: 1,
+      username: 'admin',
+      isDeleted: false,
+      status: 1,
+      roles: [{ role: { id: 1, code: 'ADMIN', isSystem: true } }],
+    });
+    menuFindMany.mockResolvedValue([]);
+
+    await strategy.validate({
+      id: 1,
+      username: 'admin',
+      type: 'access',
+      jti: 'jti-9',
+    });
+
+    expect(touchActivity).toHaveBeenCalledWith('jti-9');
+  });
+
+  it('does not record activity for a revoked token', async () => {
+    isAccessRevoked.mockReturnValueOnce(true);
+
+    await expect(
+      strategy.validate({
+        id: 1,
+        username: 'admin',
+        type: 'access',
+        jti: 'jti-9',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+
+    expect(touchActivity).not.toHaveBeenCalled();
   });
 });

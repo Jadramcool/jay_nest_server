@@ -9,10 +9,22 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RequirePermissions, OperationLog } from '@/common/decorators';
+import {
+  RequirePermissions,
+  OperationLog,
+  CurrentUser,
+} from '@/common/decorators';
 import { OperationType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { SessionService } from './session.service';
 
 class QuerySessionDto {
@@ -28,6 +40,23 @@ class QuerySessionDto {
   @Min(1)
   @Max(100)
   pageSize?: number = 20;
+
+  /** 用户名或姓名，模糊匹配 */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  username?: string;
+
+  /** 登录端: admin | app | mp */
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  platform?: string;
+
+  /** 活跃状态: active 判定窗口内有请求 | idle 超出窗口但会话仍有效 */
+  @IsOptional()
+  @IsIn(['active', 'idle'])
+  status?: 'active' | 'idle';
 }
 
 @ApiTags('在线用户')
@@ -38,9 +67,21 @@ export class SessionController {
 
   @Get('list')
   @RequirePermissions({ code: 'system:session:list', name: '查询会话' })
-  @ApiOperation({ summary: '在线会话列表(分页)' })
-  async findAll(@Query() query: QuerySessionDto) {
-    return this.sessionService.findAll(query.page ?? 1, query.pageSize ?? 20);
+  @ApiOperation({ summary: '在线会话列表(分页，含活跃/闲置状态)' })
+  async findAll(
+    @Query() query: QuerySessionDto,
+    @CurrentUser() user: { jti?: string } | null,
+  ) {
+    return this.sessionService.findAll(
+      query.page ?? 1,
+      query.pageSize ?? 20,
+      user?.jti,
+      {
+        username: query.username,
+        platform: query.platform,
+        status: query.status,
+      },
+    );
   }
 
   @Get('stats')
@@ -69,8 +110,14 @@ export class SessionController {
     operationType: OperationType.UPDATE,
     description: '强制下线用户全部会话',
   })
-  @ApiOperation({ summary: '强制下线用户全部会话' })
-  async kickByUser(@Param('userId', ParseIntPipe) userId: number) {
-    return this.sessionService.kickByUser(userId);
+  @ApiOperation({
+    summary: '强制下线用户全部会话',
+    description: '调用者自己的当前会话会被保留，避免管理员把自己踢下线',
+  })
+  async kickByUser(
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() user: { jti?: string } | null,
+  ) {
+    return this.sessionService.kickByUser(userId, { excludeJti: user?.jti });
   }
 }

@@ -595,7 +595,7 @@ model UserSession {
   refreshToken String   @unique @map("refresh_token") @db.VarChar(500) // 当前有效刷新令牌(轮换时更新);存 JWT 约 200+ 字符,VARCHAR(191) 会 P2000
   accessJti    String? @map("access_jti") // 当前访问令牌 jti(强制下线时加入黑名单)
   ipAddress    String? @map("ip_address") // 登录 IP
-  userAgent    String? @map("user_agent") // 登录浏览器标识
+  userAgent    String?  @map("user_agent") @db.VarChar(512) // 登录端标识;App/WebView 原生 UA 常超 191 字符,默认映射 VARCHAR(191) 会 P2000
   expiresAt    DateTime @map("expires_at") // 会话过期时间(跟随 refreshToken 有效期)
   lastActiveAt DateTime @default(now()) @map("last_active_at") // 最近活跃时间
   createdTime  DateTime @default(now()) @map("created_time") // 创建时间
@@ -604,5 +604,7 @@ model UserSession {
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([accessJti])
+  @@index([lastActiveAt])
   @@map("user_session")
 }

@@ -68,13 +68,17 @@ describe('DashboardService', () => {
   });
 
   describe('getStats', () => {
-    it('onlineCount should come from SessionService instead of hardcode', async () => {
+    it('onlineCount 取活跃去重人数，而不是会话数', async () => {
       (prisma.user.count as jest.Mock).mockResolvedValue(0);
       (prisma.role.count as jest.Mock).mockResolvedValue(0);
       (prisma.menu.count as jest.Mock).mockResolvedValue(0);
       (prisma.department.count as jest.Mock).mockResolvedValue(0);
       (prisma.operationLog.count as jest.Mock).mockResolvedValue(0);
-      sessionService.getStats.mockResolvedValue({ online: 3, total: 9 });
+      sessionService.getStats.mockResolvedValue({
+        onlineUsers: 3,
+        activeSessions: 5,
+        totalSessions: 9,
+      });
 
       const stats = await service.getStats();
 
